@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func RunStats(foods []Food, entries []Log) {
+func Report(foods []Food, entries []Log) {
 	today := time.Now()
 	printWeek(os.Stdout, foods, entries, today)
 	fmt.Println()
@@ -116,4 +116,27 @@ func printToday(out io.Writer, foods []Food, entries []Log, today time.Time) {
 	if len(missing) > 0 {
 		fmt.Fprintln(out, Yellow+"Not in food list (skipped): "+strings.Join(missing, ", ")+Reset)
 	}
+}
+
+// sameDay reports whether two times fall on the same calendar day (local time).
+func sameDay(a, b time.Time) bool {
+	ay, am, ad := a.Local().Date()
+	by, bm, bd := b.Local().Date()
+	return ay == by && am == bm && ad == bd
+}
+
+// LogsOn returns the entries logged on the given day.
+func LogsOn(logs []Log, day time.Time) []Log {
+	var out []Log
+	for _, e := range logs {
+		if sameDay(e.Time, day) {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// TodayLogs returns only the entries logged today.
+func TodayLogs(logs []Log) []Log {
+	return LogsOn(logs, time.Now())
 }

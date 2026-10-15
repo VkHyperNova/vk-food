@@ -8,19 +8,7 @@ import (
 	"path/filepath"
 )
 
-// writeJSON saves any value to a file as indented JSON.
-func writeJSON(path string, v any) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	data, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o644)
-}
-
-func saveWithBackup(local, backup string, v any) error {
+func SaveWithBackup(local, backup string, v any) error {
 	if err := writeJSON(local, v); err != nil {
 		return err
 	}
@@ -40,4 +28,15 @@ func saveWithBackup(local, backup string, v any) error {
 	}
 	fmt.Println(Green + "Backup save!" + Reset)
 	return nil
+}
+
+func writeJSON(path string, v any) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
 }

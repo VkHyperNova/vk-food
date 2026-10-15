@@ -2,36 +2,17 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/charmbracelet/huh"
 )
 
-/* Mount and Storage */
-
-const (
-	driveLabel      = "VK DATA"
-	driveMountPoint = "/media/veikko/VK DATA"
-	BaseDB          = "FOOD"
-	BaseLocal       = "DATABASES"
-)
-
-// First file food.json
-var FoodFile = filepath.Join(BaseLocal, BaseDB, "food.json")
-var FoodFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "food.json")
-
-// Second file foodlog.json
-var LogFile = filepath.Join(BaseLocal, BaseDB, "log.json")
-var LogFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "log.json")
-
-var ErrBackupSkipped = errors.New("backup skipped")
+/* Mounting Storage */
 
 // These are variables so that tests can replace them with fakes.
 var (

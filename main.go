@@ -1,7 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 )
 
 const (
@@ -16,6 +19,23 @@ const (
 	Bold   = "\033[1m"
 	Italic = "\033[3m"
 )
+
+const (
+	driveLabel      = "VK DATA"
+	driveMountPoint = "/media/veikko/VK DATA"
+	BaseDB          = "FOOD"
+	BaseLocal       = "DATABASES"
+)
+
+// First file
+var FoodFile = filepath.Join(BaseLocal, BaseDB, "food.json")
+var FoodFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "food.json")
+
+// Second file
+var LogFile = filepath.Join(BaseLocal, BaseDB, "log.json")
+var LogFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "log.json")
+
+var ErrBackupSkipped = errors.New("backup skipped")
 
 func main() {
 
@@ -33,21 +53,17 @@ func main() {
 }
 
 func RunApp(foods []Food, logs []Log) {
-	for {
-		RunStats(foods, logs)
-
-		var command string
-
-		fmt.Scanln(&command)
-
-		switch command {
-		case "add-food":
-			AskFood()
-		case "log":
-		case "undo":
-
-		}
-
+	if len(os.Args) < 2 {
+		Report(foods, logs)
+		return
 	}
 
+	switch os.Args[1] {
+	case "add-food":
+		if err := AddFood(foods); err != nil {
+			fmt.Println("error:", err)
+		}
+	default:
+		fmt.Println("unknown command:", os.Args[1])
+	}
 }

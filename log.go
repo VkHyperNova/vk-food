@@ -34,33 +34,10 @@ func LoadLog(source string) ([]Log, error) {
 }
 
 func SaveLog(logs []Log) error {
-	return saveWithBackup(LogFile, LogFileBackup, logs)
+	return SaveWithBackup(LogFile, LogFileBackup, logs)
 }
 
 // AddLog returns the log with one more entry, timestamped now.
 func AddLog(logs []Log, food string, grams float64) []Log {
 	return append(logs, Log{Time: time.Now(), Food: food, Grams: grams})
-}
-
-// sameDay reports whether two times fall on the same calendar day (local time).
-func sameDay(a, b time.Time) bool {
-	ay, am, ad := a.Local().Date()
-	by, bm, bd := b.Local().Date()
-	return ay == by && am == bm && ad == bd
-}
-
-// LogsOn returns the entries logged on the given day.
-func LogsOn(entries []Log, day time.Time) []Log {
-	var out []Log
-	for _, e := range entries {
-		if sameDay(e.Time, day) {
-			out = append(out, e)
-		}
-	}
-	return out
-}
-
-// TodayLogs returns only the entries logged today.
-func TodayLogs(entries []Log) []Log {
-	return LogsOn(entries, time.Now())
 }

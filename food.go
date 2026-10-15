@@ -1,10 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
+	"strconv"
+	"strings"
 )
 
 // Food holds nutrition values per 100 g.
@@ -19,41 +23,66 @@ type Food struct {
 	Salt    float64
 }
 
+func AskFloat(reader *bufio.Reader, prompt string) float64 {
+	for {
+		fmt.Print(prompt)
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Input error:", err)
+			os.Exit(1)
+		}
+
+		input = strings.TrimSpace(input)
+
+		value, err := strconv.ParseFloat(input, 64)
+		if err != nil {
+			fmt.Println("Invalid number. Please try again.")
+			continue
+		}
+
+		if value < 0 || math.IsInf(value, 0) || math.IsNaN(value) {
+			fmt.Println("Please enter a valid non-negative number.")
+			continue
+		}
+
+		return value
+	}
+}
+
 func AskFood() Food {
 	var f Food
 
+	reader := bufio.NewReader(os.Stdin)
+
 	fmt.Print("Food name: ")
-	fmt.Scanln(&f.Name)
+	f.Name, _ = reader.ReadString('\n')
+	f.Name = strings.TrimSpace(f.Name)
 
-	fmt.Print("Calories (kcal): ")
-	fmt.Scanln(&f.Kcal)
-
-	fmt.Print("Protein (g): ")
-	fmt.Scanln(&f.Protein)
-
-	fmt.Print("Carbs (g): ")
-	fmt.Scanln(&f.Carbs)
-
-	fmt.Print("Fat (g): ")
-	fmt.Scanln(&f.Fat)
-
-	fmt.Print("Fiber (g): ")
-	fmt.Scanln(&f.Fiber)
-
-	fmt.Print("Sugar (g): ")
-	fmt.Scanln(&f.Sugar)
-
-	fmt.Print("Salt (g): ")
-	fmt.Scanln(&f.Salt)
+	f.Kcal = AskFloat(reader, "Calories (kcal): ")
+	f.Protein = AskFloat(reader, "Protein (g): ")
+	f.Carbs = AskFloat(reader, "Carbs (g): ")
+	f.Fat = AskFloat(reader, "Fat (g): ")
+	f.Fiber = AskFloat(reader, "Fiber (g): ")
+	f.Sugar = AskFloat(reader, "Sugar (g): ")
+	f.Salt = AskFloat(reader, "Salt (g): ")
 
 	return f
 }
 
-func SaveFood(foods []Food) error {
-	return saveWithBackup(FoodFile, FoodFileBackup, foods)
+func AddFood(foods []Food) error {
+
+	newFood := AskFood()
+
+	foods = append(foods, newFood)
+
+	return SaveFood(foods)
 }
 
-// LoadFood reads the list of foods from a JSON file if it exists
+func SaveFood(foods []Food) error {
+	return SaveWithBackup(FoodFile, FoodFileBackup, foods)
+}
+
 func LoadFood(source string) ([]Food, error) {
 	data, err := os.ReadFile(source)
 
