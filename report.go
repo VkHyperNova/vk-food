@@ -2,11 +2,19 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
 )
+
+func RunStats(foods []Food, entries []Log) {
+	today := time.Now()
+	printWeek(os.Stdout, foods, entries, today)
+	fmt.Println()
+	printToday(os.Stdout, foods, entries, today)
+}
 
 // Totals is a sum of nutrients (absolute amounts, not per 100 g).
 type Totals struct {
@@ -37,7 +45,7 @@ func findFood(foods []Food, name string) (Food, bool) {
 
 // sumEntries adds up the nutrients of entries. Entries whose food is not in
 // the food list are skipped, and their names are returned.
-func sumEntries(foods []Food, entries []Entry) (Totals, []string) {
+func sumEntries(foods []Food, entries []Log) (Totals, []string) {
 	var total Totals
 	var missing []string
 	for _, e := range entries {
@@ -51,16 +59,16 @@ func sumEntries(foods []Food, entries []Entry) (Totals, []string) {
 	return total, missing
 }
 
-func printWeek(foods []Food, entries []Entry, today time.Time) {
-	fmt.Println(Bold + "Last 7 days" + Reset)
+func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
+	fmt.Fprintln(out, Bold+"Last 7 days"+Reset)
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(w, "Date\tkcal\tProtein\tCarbs\tFat\t")
 	for i := 7; i >= 1; i-- {
 		day := today.AddDate(0, 0, -i)
 		date := day.Format("Mon 02 Jan")
 
-		list := EntriesOn(entries, day)
+		list := LogsOn(entries, day)
 		if len(list) == 0 {
 			fmt.Fprintf(w, "%s\t-\t-\t-\t-\t\n", date)
 			continue
@@ -71,16 +79,16 @@ func printWeek(foods []Food, entries []Entry, today time.Time) {
 	w.Flush()
 }
 
-func printToday(foods []Food, entries []Entry, today time.Time) {
-	fmt.Println(Bold + "Today, " + today.Format("Mon 02 Jan 2006") + Reset)
+func printToday(out io.Writer, foods []Food, entries []Log, today time.Time) {
+	fmt.Fprintln(out, Bold+"Today, "+today.Format("Mon 02 Jan 2006")+Reset)
 
-	list := EntriesOn(entries, today)
+	list := LogsOn(entries, today)
 	if len(list) == 0 {
-		fmt.Println("Nothing logged today.")
+		fmt.Fprintln(out, "Nothing logged today.")
 		return
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.AlignRight)
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(w, "Time\tFood\tGrams\tkcal\t")
 	for _, e := range list {
 		clock := e.Time.Local().Format("15:04")
@@ -96,16 +104,16 @@ func printToday(foods []Food, entries []Entry, today time.Time) {
 	w.Flush()
 
 	total, missing := sumEntries(foods, list)
-	fmt.Println()
-	fmt.Printf("  Calories  %7.0f kcal\n", total.Kcal)
-	fmt.Printf("  Protein   %7.1f g\n", total.Protein)
-	fmt.Printf("  Carbs     %7.1f g\n", total.Carbs)
-	fmt.Printf("    sugar   %7.1f g\n", total.Sugar)
-	fmt.Printf("  Fat       %7.1f g\n", total.Fat)
-	fmt.Printf("  Fiber     %7.1f g\n", total.Fiber)
-	fmt.Printf("  Salt      %7.2f g\n", total.Salt)
+	fmt.Fprintln(out)
+	fmt.Fprintf(out, "  Calories  %7.0f kcal\n", total.Kcal)
+	fmt.Fprintf(out, "  Protein   %7.1f g\n", total.Protein)
+	fmt.Fprintf(out, "  Carbs     %7.1f g\n", total.Carbs)
+	fmt.Fprintf(out, "    sugar   %7.1f g\n", total.Sugar)
+	fmt.Fprintf(out, "  Fat       %7.1f g\n", total.Fat)
+	fmt.Fprintf(out, "  Fiber     %7.1f g\n", total.Fiber)
+	fmt.Fprintf(out, "  Salt      %7.2f g\n", total.Salt)
 
 	if len(missing) > 0 {
-		fmt.Println(Yellow + "Not in food list (skipped): " + strings.Join(missing, ", ") + Reset)
+		fmt.Fprintln(out, Yellow+"Not in food list (skipped): "+strings.Join(missing, ", ")+Reset)
 	}
 }

@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"time"
 )
 
 const (
@@ -21,30 +19,35 @@ const (
 
 func main() {
 
-	defer CloseInput()
-
-	if err := InitLocalStorage(); err != nil {
-		log.Fatalf("init storage: %v", err)
-	}
-
-	// Load foods
 	foods, err := LoadFood(FoodFile)
 	if err != nil {
 		fmt.Printf("LoadFood: %v\n", err)
 	}
 
-	entries, err := LoadLog(LogFile)
+	logs, err := LoadLog(LogFile)
 	if err != nil {
 		fmt.Printf("LoadLog: %v\n", err)
 	}
 
-	Run(foods, entries)
-
+	RunApp(foods, logs)
 }
 
-func Run(foods []Food, entries []Entry) {
-	today := time.Now()
-	printWeek(foods, entries, today)
-	fmt.Println()
-	printToday(foods, entries, today)
+func RunApp(foods []Food, logs []Log) {
+	for {
+		RunStats(foods, logs)
+
+		var command string
+
+		fmt.Scanln(&command)
+
+		switch command {
+		case "add-food":
+			AskFood()
+		case "log":
+		case "undo":
+
+		}
+
+	}
+
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 )
@@ -18,43 +19,48 @@ type Food struct {
 	Salt    float64
 }
 
-// writeJSON saves any value to a file as indented JSON.
-func writeJSON(path string, v any) error {
-	data, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o644)
+func AskFood() Food {
+	var f Food
+
+	fmt.Print("Food name: ")
+	fmt.Scanln(&f.Name)
+
+	fmt.Print("Calories (kcal): ")
+	fmt.Scanln(&f.Kcal)
+
+	fmt.Print("Protein (g): ")
+	fmt.Scanln(&f.Protein)
+
+	fmt.Print("Carbs (g): ")
+	fmt.Scanln(&f.Carbs)
+
+	fmt.Print("Fat (g): ")
+	fmt.Scanln(&f.Fat)
+
+	fmt.Print("Fiber (g): ")
+	fmt.Scanln(&f.Fiber)
+
+	fmt.Print("Sugar (g): ")
+	fmt.Scanln(&f.Sugar)
+
+	fmt.Print("Salt (g): ")
+	fmt.Scanln(&f.Salt)
+
+	return f
 }
 
-func writeFoods(path string, foods []Food) error {
-	return writeJSON(path, foods)
+func SaveFood(foods []Food) error {
+	return saveWithBackup(FoodFile, FoodFileBackup, foods)
 }
 
-func SaveToFile(foods []Food) error {
-	// Save local
-	if err := writeFoods(FoodFile, foods); err != nil {
-		return err
-	}
-	fmt.Println(Green + "Local save!" + Reset)
-
-	// Save backup (best effort: warn, but don't fail the whole save)
-	if err := InitBackupStorage(); err != nil {
-		fmt.Println(Yellow + "Backup init failed: " + err.Error() + Reset)
-		return nil
-	}
-	if err := writeFoods(FoodFileBackup, foods); err != nil {
-		fmt.Println(Yellow + "Backup write failed: " + err.Error() + Reset)
-		return nil
-	}
-	fmt.Println(Green + "Backup save!" + Reset)
-
-	return nil
-}
-
-// LoadFood reads the list of foods from a JSON file.
+// LoadFood reads the list of foods from a JSON file if it exists
 func LoadFood(source string) ([]Food, error) {
 	data, err := os.ReadFile(source)
+
+	// If file does not exist continue
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil // first run: nothing saved yet
+	}
 	if err != nil {
 		return nil, err
 	}

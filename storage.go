@@ -2,12 +2,16 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/charmbracelet/huh"
 )
 
 /* Mount and Storage */
@@ -15,72 +19,65 @@ import (
 const (
 	driveLabel      = "VK DATA"
 	driveMountPoint = "/media/veikko/VK DATA"
-	DefaultContent  = `{[]}`
 	BaseDB          = "FOOD"
 	BaseLocal       = "DATABASES"
-	BaseBackup      = "/media/veikko/VK DATA/"
 )
 
 // First file food.json
 var FoodFile = filepath.Join(BaseLocal, BaseDB, "food.json")
-var FoodFileBackup = filepath.Join(BaseBackup, BaseLocal, BaseDB, "food.json")
+var FoodFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "food.json")
 
 // Second file foodlog.json
 var LogFile = filepath.Join(BaseLocal, BaseDB, "log.json")
-var LogFileBackup = filepath.Join(BaseBackup, BaseLocal, BaseDB, "log.json")
+var LogFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "log.json")
 
-func InitLocalStorage() error {
-	if err := ensureFile(FoodFile, DefaultContent); err != nil {
-		return err
-	}
+var ErrBackupSkipped = errors.New("backup skipped")
 
-	if err := ensureFile(LogFile, DefaultContent); err != nil {
-		return err
-	}
+// These are variables so that tests can replace them with fakes.
+var (
+	checkMounted = IsDriveMounted
+	askMount     = confirmMount
+	mountDrive   = unlockAndMount
+)
 
-	return nil
+// confirmMount asks the user whether to mount the drive. Enter means yes.
+func confirmMount() (bool, error) {
+	mount := true // Yes is preselected, so Enter mounts
+	err := huh.NewConfirm().
+		Title("Mount?").
+		Affirmative("Yes").
+		Negative("No").
+		Value(&mount).
+		Run()
+	return mount, err
 }
 
 func InitBackupStorage() error {
-	mounted, err := IsDriveMounted()
+	mounted, err := checkMounted()
 	if err != nil {
 		return fmt.Errorf("mount check failed: %w", err)
 	}
 
+	if mounted {
+		return nil // already mounted, nothing to do
+	}
+
+	mount, err := askMount()
+	if err != nil || !mount {
+		return ErrBackupSkipped
+	}
+
+	if err := mountDrive(); err != nil {
+		return fmt.Errorf("failed to mount drive: %w", err)
+	}
+
+	mounted, err = checkMounted()
+	if err != nil {
+		return fmt.Errorf("mount check failed: %w", err)
+	}
 	if !mounted {
-		input, err := PromptWithSuggestion("Drive not mounted. Try to mount it? (y/n) ", "y")
-		if err != nil {
-			return err
-		}
-		if strings.ToLower(strings.TrimSpace(input)) != "y" {
-			return nil
-		}
-		if err := unlockAndMount(); err != nil {
-			return fmt.Errorf("failed to mount drive: %w", err)
-		}
-		if mounted, err = IsDriveMounted(); err != nil || !mounted {
-			return fmt.Errorf("drive still not mounted after mount attempt")
-		}
-		// Program did the mounting
-		return ensureFile(FoodFileBackup, DefaultContent)
+		return fmt.Errorf("drive still not mounted after mount attempt")
 	}
-
-	// Drive was already mounted manually
-	return ensureFile(FoodFileBackup, DefaultContent)
-}
-
-func ensureFile(path string, content string) error {
-
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return fmt.Errorf("error creating directory for %s: %w", path, err)
-	}
-
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
-			return fmt.Errorf("error creating file %s: %w", path, err)
-		}
-	}
-
 	return nil
 }
 
@@ -100,7 +97,12 @@ func IsDriveMounted() (bool, error) {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	return deviceInMounts(file, device)
+}
+
+// deviceInMounts reports whether device is listed in /proc/mounts content.
+func deviceInMounts(mounts io.Reader, device string) (bool, error) {
+	scanner := bufio.NewScanner(mounts)
 	for scanner.Scan() {
 		parts := strings.SplitN(scanner.Text(), " ", 3)
 		if len(parts) >= 2 && parts[0] == device {
@@ -129,8 +131,13 @@ func findDeviceByLabel(label string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("lsblk failed: %w", err)
 	}
+	return parseDeviceByLabel(string(out), label)
+}
 
-	for _, line := range strings.Split(string(out), "\n") {
+// parseDeviceByLabel finds the device with the given label in the output of
+// "lsblk -o NAME,LABEL -r -n".
+func parseDeviceByLabel(lsblkOutput, label string) (string, error) {
+	for _, line := range strings.Split(lsblkOutput, "\n") {
 		fields := strings.Fields(line)
 		if len(fields) >= 2 && decodeLsblkLabel(fields[1]) == label {
 			return "/dev/" + fields[0], nil
@@ -153,35 +160,4 @@ func mountDevice(device string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
-}
-
-func UnmountDrive() error {
-	device, err := findDeviceByLabel(driveLabel)
-	if err != nil {
-		return fmt.Errorf("could not find drive: %w", err)
-	}
-
-	prompt := fmt.Sprintf("Do you want to unmount drive: %s? (y/n) ", driveMountPoint)
-	input, err := PromptWithSuggestion(prompt, "n")
-	if err != nil {
-		return err
-	}
-
-	input = strings.ToLower(input)
-
-	if input == "y" || input == "yes" {
-		fmt.Println("Unmounting drive...")
-		cmd := exec.Command("udisksctl", "unmount", "-b", device)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			fmt.Println("Warning: failed to unmount drive:", err)
-			return err
-		}
-		fmt.Println("Drive unmounted successfully")
-	} else {
-		fmt.Println("Unmount canceled!")
-	}
-
-	return nil
 }
