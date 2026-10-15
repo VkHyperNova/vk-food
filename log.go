@@ -7,14 +7,12 @@ import (
 	"time"
 )
 
-// Log is one thing you ate: which food, how much, and when.
 type Log struct {
 	Time  time.Time `json:"time"`
 	Food  string    `json:"food"`
 	Grams float64   `json:"grams"`
 }
 
-// LoadLog reads all log entries from a JSON file if it exists
 func LoadLog(source string) ([]Log, error) {
 	data, err := os.ReadFile(source)
 
@@ -37,7 +35,7 @@ func SaveLog(logs []Log) error {
 	return SaveWithBackup(LogFile, LogFileBackup, logs)
 }
 
-// AddLog returns the log with one more entry, timestamped now.
-func AddLog(logs []Log, food string, grams float64) []Log {
-	return append(logs, Log{Time: time.Now(), Food: food, Grams: grams})
+func AddLog(logs []Log, food string, grams float64) error {
+	logs = append(logs, Log{Time: time.Now(), Food: food, Grams: grams})
+	return SaveLog(logs)
 }

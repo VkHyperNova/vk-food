@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 const (
@@ -53,14 +54,32 @@ func main() {
 }
 
 func RunApp(foods []Food, logs []Log) {
-	if len(os.Args) < 2 {
-		Report(foods, logs)
-		return
-	}
+
+	Report(foods, logs)
 
 	switch os.Args[1] {
 	case "add-food":
 		if err := AddFood(foods); err != nil {
+			fmt.Println("error:", err)
+		}
+	case "log":
+		if len(os.Args) < 4 {
+			fmt.Println("Usage: go run . log <food-name> <grams>")
+			return
+		}
+
+		grams, err := strconv.ParseFloat(os.Args[3], 64)
+		if err != nil {
+			fmt.Println("error: grams must be a valid number")
+			return
+		}
+
+		if grams <= 0 {
+			fmt.Println("error: grams must be greater than zero")
+			return
+		}
+
+		if err := AddLog(logs, os.Args[2], grams); err != nil {
 			fmt.Println("error:", err)
 		}
 	default:
