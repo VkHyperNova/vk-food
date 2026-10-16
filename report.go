@@ -9,11 +9,51 @@ import (
 	"time"
 )
 
-func Report(foods []Food, entries []Log) {
+func Report() {
+
+	ClearScreen()
+
+	foods, err := LoadFood(FoodFile)
+	if err != nil {
+		fmt.Printf("LoadFood: %v\n", err)
+	}
+
+	logs, err := LoadLog(LogFile)
+	if err != nil {
+		fmt.Printf("LoadLog: %v\n", err)
+	}
+
+	PrintFoods()
+
 	today := time.Now()
-	printWeek(os.Stdout, foods, entries, today)
+	printWeek(os.Stdout, foods, logs, today)
+
 	fmt.Println()
-	printToday(os.Stdout, foods, entries, today)
+	printToday(os.Stdout, foods, logs, today)
+}
+
+func PrintFoods() error {
+	foods, err := LoadFood(FoodFile)
+	if err != nil {
+		return err
+	}
+
+	var buf strings.Builder
+	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "Name\tKcal\tProtein\tCarbs\tFat\tFiber\tSugar\tSalt")
+	for _, f := range foods {
+		fmt.Fprintf(w, "%s\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.2f\n",
+			f.Name, f.Kcal, f.Protein, f.Carbs, f.Fat, f.Fiber, f.Sugar, f.Salt)
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	header, rows, _ := strings.Cut(buf.String(), "\n")
+	fmt.Println(Bold + header + Reset)
+	fmt.Print(rows)
+	fmt.Println()
+	return nil
 }
 
 // Totals is a sum of nutrients (absolute amounts, not per 100 g).
@@ -64,7 +104,7 @@ func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
 
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', tabwriter.AlignRight)
 	fmt.Fprintln(w, "Date\tkcal\tProtein\tCarbs\tFat\t")
-	for i := 7; i >= 1; i-- {
+	for i := 7; i >= 0; i-- {
 		day := today.AddDate(0, 0, -i)
 		date := day.Format("Mon 02 Jan")
 
@@ -105,16 +145,43 @@ func printToday(out io.Writer, foods []Food, entries []Log, today time.Time) {
 
 	total, missing := sumEntries(foods, list)
 	fmt.Fprintln(out)
-	fmt.Fprintf(out, "  Calories  %7.0f kcal\n", total.Kcal)
-	fmt.Fprintf(out, "  Protein   %7.1f g\n", total.Protein)
-	fmt.Fprintf(out, "  Carbs     %7.1f g\n", total.Carbs)
-	fmt.Fprintf(out, "    sugar   %7.1f g\n", total.Sugar)
-	fmt.Fprintf(out, "  Fat       %7.1f g\n", total.Fat)
-	fmt.Fprintf(out, "  Fiber     %7.1f g\n", total.Fiber)
-	fmt.Fprintf(out, "  Salt      %7.2f g\n", total.Salt)
+
+	kcal := levelColor(total.Kcal, 1000, 2400, 4000)
+	fmt.Fprintf(out, "  Calories     %s%7.2f g%s\n", kcal, total.Kcal, Reset)
+
+	protein := levelColor(total.Protein, 85, 150, 180)
+	fmt.Fprintf(out, "  Protein      %s%7.2f g%s\n", protein, total.Protein, Reset)
+
+	carbs := levelColor(total.Carbs, 50, 150, 300)
+	fmt.Fprintf(out, "  Carbs      %s%7.2f g%s\n", carbs, total.Carbs, Reset)
+
+	sugar := levelColor(total.Sugar, 0, 25, 50)
+	fmt.Fprintf(out, "  Free Sugar      %s%7.2f g%s\n", sugar, total.Sugar, Reset)
+
+	fat := levelColor(total.Fat, 45, 75, 90)
+	fmt.Fprintf(out, "  Fat      %s%7.2f g%s\n", fat, total.Fat, Reset)
+
+	fiber := levelColor(total.Fiber, 25, 41, 50)
+	fmt.Fprintf(out, "  Fiber      %s%7.2f g%s\n", fiber, total.Fiber, Reset)
+
+	salt := levelColor(total.Salt, 1, 5, 10)
+	fmt.Fprintf(out, "  Salt      %s%7.2f g%s\n", salt, total.Salt, Reset)
 
 	if len(missing) > 0 {
 		fmt.Fprintln(out, Yellow+"Not in food list (skipped): "+strings.Join(missing, ", ")+Reset)
+	}
+}
+
+func levelColor(v, greenFrom, yellowFrom, redFrom float64) string {
+	switch {
+	case v > redFrom:
+		return Bold + Red
+	case v > yellowFrom:
+		return Bold + Yellow
+	case v >= greenFrom:
+		return Bold + Green
+	default:
+		return Reset
 	}
 }
 

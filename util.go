@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 )
 
 func SaveWithBackup(local, backup string, v any) error {
@@ -39,4 +41,21 @@ func writeJSON(path string, v any) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
+}
+
+func ClearScreen() {
+
+	var cmd *exec.Cmd
+
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("cmd", "/c", "cls")
+	} else {
+		cmd = exec.Command("clear")
+	}
+
+	cmd.Stdout = os.Stdout
+
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "Error clearing screen:", err)
+	}
 }

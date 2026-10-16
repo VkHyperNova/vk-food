@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 )
 
 const (
@@ -39,50 +38,22 @@ var LogFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "log.json"
 var ErrBackupSkipped = errors.New("backup skipped")
 
 func main() {
+	var err error
 
-	foods, err := LoadFood(FoodFile)
-	if err != nil {
-		fmt.Printf("LoadFood: %v\n", err)
+	if len(os.Args) >= 2 {
+		switch os.Args[1] {
+		case "add-food":
+			err = AddFood()
+		case "log":
+			err = AddLog()
+		default:
+			err = fmt.Errorf("unknown command: %s", os.Args[1])
+		}
 	}
 
-	logs, err := LoadLog(LogFile)
+	Report()
+
 	if err != nil {
-		fmt.Printf("LoadLog: %v\n", err)
-	}
-
-	RunApp(foods, logs)
-}
-
-func RunApp(foods []Food, logs []Log) {
-
-	Report(foods, logs)
-
-	switch os.Args[1] {
-	case "add-food":
-		if err := AddFood(foods); err != nil {
-			fmt.Println("error:", err)
-		}
-	case "log":
-		if len(os.Args) < 4 {
-			fmt.Println("Usage: go run . log <food-name> <grams>")
-			return
-		}
-
-		grams, err := strconv.ParseFloat(os.Args[3], 64)
-		if err != nil {
-			fmt.Println("error: grams must be a valid number")
-			return
-		}
-
-		if grams <= 0 {
-			fmt.Println("error: grams must be greater than zero")
-			return
-		}
-
-		if err := AddLog(logs, os.Args[2], grams); err != nil {
-			fmt.Println("error:", err)
-		}
-	default:
-		fmt.Println("unknown command:", os.Args[1])
+		fmt.Printf("%serror: %v%s\n", Red, err, Reset)
 	}
 }

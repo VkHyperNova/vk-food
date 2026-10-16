@@ -70,7 +70,12 @@ func AskFood() Food {
 	return f
 }
 
-func AddFood(foods []Food) error {
+func AddFood() error {
+
+	foods, err := LoadFood(FoodFile)
+	if err != nil {
+		return fmt.Errorf("load food: %w", err)
+	}
 
 	newFood := AskFood()
 

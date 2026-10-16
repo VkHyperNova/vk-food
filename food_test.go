@@ -8,175 +8,199 @@ import (
 	"testing"
 )
 
-// TestAskFloat checks valid numeric input.
-func TestAskFloat(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected float64
-	}{
-		{"Integer", "100\n", 100},
-		{"Decimal", "23.5\n", 23.5},
-		{"Zero", "0\n", 0},
-		{"Whitespace", "  12.5  \n", 12.5},
-		{"Invalid then valid", "abc\n25.5\n", 25.5},
-		{"Negative then valid", "-10\n15\n", 15},
-		{"Empty then valid", "\n20\n", 20},
-		{"Infinity then valid", "Inf\n10\n", 10},
-	}
+// useTempFoodFile points FoodFile at a temp folder and fakes the USB drive,
+// so tests never touch your real data or ask "Mount?".
+func useTempFoodFile(t *testing.T) string {
+	t.Helper()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			reader := bufio.NewReader(strings.NewReader(tt.input))
+	oldFile, oldBackup := FoodFile, FoodFileBackup
+	oldCheck, oldAsk := checkMounted, askMount
+	t.Cleanup(func() {
+		FoodFile, FoodFileBackup = oldFile, oldBackup
+		checkMounted, askMount = oldCheck, oldAsk
+	})
 
-			result := AskFloat(reader, "Enter number: ")
-
-			if result != tt.expected {
-				t.Errorf("Expected %v, got %v", tt.expected, result)
-			}
-		})
-	}
-}
-
-// TestAskFood checks that food information is read correctly.
-func TestAskFood(t *testing.T) {
-	input := strings.Join([]string{
-		"Chicken Breast",
-		"107",
-		"23.5",
-		"0",
-		"2",
-		"0",
-		"0",
-		"0.1",
-		"",
-	}, "\n")
-
-	// Temporarily replace standard input.
-	oldStdin := os.Stdin
-	defer func() {
-		os.Stdin = oldStdin
-	}()
-
-	tmpFile, err := os.CreateTemp(t.TempDir(), "stdin")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer tmpFile.Close()
-
-	if _, err := tmpFile.WriteString(input); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := tmpFile.Seek(0, 0); err != nil {
-		t.Fatal(err)
-	}
-
-	os.Stdin = tmpFile
-
-	result := AskFood()
-
-	expected := Food{
-		Name:    "Chicken Breast",
-		Kcal:    107,
-		Protein: 23.5,
-		Carbs:   0,
-		Fat:     2,
-		Fiber:   0,
-		Sugar:   0,
-		Salt:    0.1,
-	}
-
-	if result != expected {
-		t.Errorf("Expected %+v, got %+v", expected, result)
-	}
-}
-
-// TestLoadFood checks loading valid JSON data.
-func TestLoadFood(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "foods.json")
+	FoodFile = filepath.Join(dir, "local", "food.json")
+	FoodFileBackup = filepath.Join(dir, "usb", "food.json")
+	checkMounted = func() (bool, error) { return false, nil }
+	askMount = func() (bool, error) { return false, nil } // user answers No
 
-	data := `[
-		{
-			"Name": "Chicken Breast",
-			"Kcal": 107,
-			"Protein": 23.5,
-			"Carbs": 0,
-			"Fat": 2,
-			"Fiber": 0,
-			"Sugar": 0,
-			"Salt": 0.1
-		}
-	]`
+	return FoodFile
+}
 
-	if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+// withStdin makes os.Stdin read from the given text for the length of the test.
+func withStdin(t *testing.T, input string) {
+	t.Helper()
+
+	path := filepath.Join(t.TempDir(), "stdin.txt")
+	if err := os.WriteFile(path, []byte(input), 0o644); err != nil {
 		t.Fatal(err)
 	}
-
-	foods, err := LoadFood(path)
+	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if len(foods) != 1 {
-		t.Fatalf("Expected 1 food, got %d", len(foods))
-	}
-
-	if foods[0].Name != "Chicken Breast" {
-		t.Errorf("Unexpected food name: %s", foods[0].Name)
-	}
-
-	if foods[0].Kcal != 107 {
-		t.Errorf("Expected 107 kcal, got %v", foods[0].Kcal)
-	}
+	old := os.Stdin
+	os.Stdin = f
+	t.Cleanup(func() {
+		os.Stdin = old
+		f.Close()
+	})
 }
 
-// TestLoadFoodMissingFile checks first-run behavior.
 func TestLoadFoodMissingFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "missing.json")
-
-	foods, err := LoadFood(path)
-
+	foods, err := LoadFood(filepath.Join(t.TempDir(), "nope.json"))
 	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
+		t.Fatalf("missing file should not be an error, got %v", err)
 	}
-
-	if foods != nil {
-		t.Errorf("Expected nil foods, got %+v", foods)
-	}
-}
-
-// TestLoadFoodInvalidJSON checks malformed JSON.
-func TestLoadFoodInvalidJSON(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "invalid.json")
-
-	if err := os.WriteFile(path, []byte("{invalid json"), 0600); err != nil {
-		t.Fatal(err)
-	}
-
-	_, err := LoadFood(path)
-
-	if err == nil {
-		t.Error("Expected error for invalid JSON")
-	}
-}
-
-// TestLoadFoodEmptyArray checks an empty food database.
-func TestLoadFoodEmptyArray(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "empty.json")
-
-	if err := os.WriteFile(path, []byte("[]"), 0600); err != nil {
-		t.Fatal(err)
-	}
-
-	foods, err := LoadFood(path)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	if len(foods) != 0 {
-		t.Errorf("Expected 0 foods, got %d", len(foods))
+		t.Errorf("got %d foods, want 0", len(foods))
+	}
+}
+
+func TestLoadFoodValid(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "food.json")
+	data := `[{"Name":"Oats","Kcal":370,"Protein":13,"Carbs":60,"Fat":7,"Fiber":10,"Sugar":1,"Salt":0.02}]`
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	foods, err := LoadFood(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(foods) != 1 || foods[0].Name != "Oats" || foods[0].Salt != 0.02 {
+		t.Errorf("unexpected foods: %+v", foods)
+	}
+}
+
+func TestLoadFoodBadJSON(t *testing.T) {
+	for _, content := range []string{"not json", `{}`, `{"foods": []}`} {
+		path := filepath.Join(t.TempDir(), "food.json")
+		os.WriteFile(path, []byte(content), 0o644)
+
+		if _, err := LoadFood(path); err == nil {
+			t.Errorf("content %q should give an error", content)
+		}
+	}
+}
+
+func TestAskFloatValid(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("  12.5  \n"))
+
+	if got := AskFloat(reader, ""); got != 12.5 {
+		t.Errorf("got %v, want 12.5", got)
+	}
+}
+
+func TestAskFloatRetriesOnBadInput(t *testing.T) {
+	// the last line is valid, otherwise AskFloat would hit EOF and call os.Exit
+	input := "abc\n-5\n0,01\nNaN\nInf\n\n3.5\n"
+	reader := bufio.NewReader(strings.NewReader(input))
+
+	if got := AskFloat(reader, ""); got != 3.5 {
+		t.Errorf("got %v, want 3.5 after the bad lines", got)
+	}
+}
+
+func TestAskFloatAcceptsZero(t *testing.T) {
+	reader := bufio.NewReader(strings.NewReader("0\n"))
+
+	if got := AskFloat(reader, ""); got != 0 {
+		t.Errorf("got %v, want 0", got)
+	}
+}
+
+func TestAskFood(t *testing.T) {
+	withStdin(t, "Oats\n370\n13\n60\n7\n10\n1\n0.02\n")
+
+	want := Food{Name: "Oats", Kcal: 370, Protein: 13, Carbs: 60, Fat: 7, Fiber: 10, Sugar: 1, Salt: 0.02}
+	if got := AskFood(); got != want {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+}
+
+func TestAskFoodNameWithSpaces(t *testing.T) {
+	withStdin(t, "  Peanut butter  \n600\n25\n20\n50\n6\n9\n0.01\n")
+
+	got := AskFood()
+	if got.Name != "Peanut butter" {
+		t.Errorf("Name = %q, want %q", got.Name, "Peanut butter")
+	}
+	if got.Kcal != 600 || got.Salt != 0.01 {
+		t.Errorf("values shifted: %+v", got)
+	}
+}
+
+func TestAddFoodFirstRun(t *testing.T) {
+	path := useTempFoodFile(t)
+	withStdin(t, "Oats\n370\n13\n60\n7\n10\n1\n0.02\n")
+
+	if err := AddFood(); err != nil {
+		t.Fatal(err)
+	}
+
+	foods, err := LoadFood(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(foods) != 1 || foods[0].Name != "Oats" {
+		t.Errorf("unexpected foods: %+v", foods)
+	}
+}
+
+func TestAddFoodAppends(t *testing.T) {
+	path := useTempFoodFile(t)
+
+	withStdin(t, "Oats\n370\n13\n60\n7\n10\n1\n0.02\n")
+	if err := AddFood(); err != nil {
+		t.Fatal(err)
+	}
+	withStdin(t, "Cheese\n400\n25\n1\n33\n0\n1\n1.8\n")
+	if err := AddFood(); err != nil {
+		t.Fatal(err)
+	}
+
+	foods, err := LoadFood(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(foods) != 2 || foods[0].Name != "Oats" || foods[1].Name != "Cheese" {
+		t.Errorf("old food lost or order wrong: %+v", foods)
+	}
+}
+
+func TestAddFoodBrokenFileIsNotOverwritten(t *testing.T) {
+	path := useTempFoodFile(t)
+	os.MkdirAll(filepath.Dir(path), 0o755)
+	os.WriteFile(path, []byte("not json"), 0o644)
+	withStdin(t, "Oats\n370\n13\n60\n7\n10\n1\n0.02\n")
+
+	if err := AddFood(); err == nil {
+		t.Fatal("expected an error for the broken file")
+	}
+
+	data, _ := os.ReadFile(path)
+	if string(data) != "not json" {
+		t.Errorf("broken file was overwritten with: %s", data)
+	}
+}
+
+func TestSaveFoodRoundtrip(t *testing.T) {
+	path := useTempFoodFile(t)
+	in := []Food{{Name: "Oats", Kcal: 370}, {Name: "Cheese", Kcal: 400, Salt: 1.8}}
+
+	if err := SaveFood(in); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := LoadFood(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 2 || out[1] != in[1] {
+		t.Errorf("got %+v, want %+v", out, in)
 	}
 }

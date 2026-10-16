@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -35,7 +37,30 @@ func SaveLog(logs []Log) error {
 	return SaveWithBackup(LogFile, LogFileBackup, logs)
 }
 
-func AddLog(logs []Log, food string, grams float64) error {
-	logs = append(logs, Log{Time: time.Now(), Food: food, Grams: grams})
+func AddLog() error {
+
+	if len(os.Args) < 4 {
+		fmt.Println("Usage: go run . log <food-name> <grams>")
+		return errors.New("usage: go run . log <food-name> <grams>")
+	}
+
+	grams, err := strconv.ParseFloat(os.Args[3], 64)
+	if err != nil {
+		fmt.Println("error: grams must be a valid number")
+		return fmt.Errorf("grams must be a valid number: %w", err)
+	}
+
+	if grams <= 0 {
+		fmt.Println("error: grams must be greater than zero")
+		return errors.New("grams must be greater than zero")
+	}
+
+	logs, err := LoadLog(LogFile)
+	if err != nil {
+		return fmt.Errorf("load log: %w", err)
+	}
+
+	logs = append(logs, Log{Time: time.Now(), Food: os.Args[2], Grams: grams})
+
 	return SaveLog(logs)
 }
