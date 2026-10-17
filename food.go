@@ -85,7 +85,7 @@ func AddFood() error {
 }
 
 func SaveFood(foods []Food) error {
-	return SaveWithBackup(FoodFile, FoodFileBackup, foods)
+	return Save(FoodFile, FoodFileBackup, foods)
 }
 
 func LoadFood(source string) ([]Food, error) {

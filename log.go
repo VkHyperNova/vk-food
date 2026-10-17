@@ -34,7 +34,7 @@ func LoadLog(source string) ([]Log, error) {
 }
 
 func SaveLog(logs []Log) error {
-	return SaveWithBackup(LogFile, LogFileBackup, logs)
+	return Save(LogFile, LogFileBackup, logs)
 }
 
 func AddLog() error {

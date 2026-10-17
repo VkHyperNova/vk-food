@@ -24,15 +24,15 @@ const (
 	driveLabel      = "VK DATA"
 	driveMountPoint = "/media/veikko/VK DATA"
 	BaseDB          = "FOOD"
-	BaseLocal       = "DATABASES"
+	// BaseLocal       = "DATABASES"
+	BaseLocal = "DEVELOPMENT"
 )
 
-// First file
 var FoodFile = filepath.Join(BaseLocal, BaseDB, "foods.json")
-var FoodFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "food.json")
-
-// Second file
 var LogFile = filepath.Join(BaseLocal, BaseDB, "logs.json")
+
+// Backup on D drive \\
+var FoodFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "food.json")
 var LogFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "log.json")
 
 var ErrBackupSkipped = errors.New("backup skipped")

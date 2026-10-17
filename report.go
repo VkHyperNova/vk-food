@@ -87,18 +87,14 @@ func findFood(foods []Food, name string) (Food, bool) {
 
 // sumEntries adds up the nutrients of entries. Entries whose food is not in
 // the food list are skipped, and their names are returned.
-func sumEntries(foods []Food, entries []Log) (Totals, []string) {
+func sumEntries(foods []Food, entries []Log) Totals {
 	var total Totals
-	var missing []string
 	for _, e := range entries {
-		f, ok := findFood(foods, e.Food)
-		if !ok {
-			missing = append(missing, e.Food)
-			continue
-		}
+		f, _ := findFood(foods, e.Food)
+
 		total.Add(f, e.Grams)
 	}
-	return total, missing
+	return total
 }
 
 func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
@@ -115,7 +111,7 @@ func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
 			fmt.Fprintf(w, "%s\t-\t-\t-\t-\t\n", date)
 			continue
 		}
-		t, _ := sumEntries(foods, list)
+		t := sumEntries(foods, list)
 		fmt.Fprintf(w, "%s\t%.0f\t%.1f\t%.1f\t%.1f\t\n", date, t.Kcal, t.Protein, t.Carbs, t.Fat)
 	}
 	w.Flush()
@@ -145,33 +141,29 @@ func printToday(out io.Writer, foods []Food, entries []Log, today time.Time) {
 	}
 	w.Flush()
 
-	total, missing := sumEntries(foods, list)
+	total := sumEntries(foods, list)
 	fmt.Fprintln(out)
 
 	kcal := levelColor(total.Kcal, 1000, 2400, 4000)
-	fmt.Fprintf(out, "  Calories     %s%7.2f g%s\n", kcal, total.Kcal, Reset)
+	fmt.Fprintf(out, "  Calories   %s%7.2f g%s / 4000 g\n", kcal, total.Kcal, Reset)
 
 	protein := levelColor(total.Protein, 85, 150, 180)
-	fmt.Fprintf(out, "  Protein      %s%7.2f g%s\n", protein, total.Protein, Reset)
+	fmt.Fprintf(out, "  Protein    %s%7.2f g%s / 180 g\n", protein, total.Protein, Reset)
 
 	carbs := levelColor(total.Carbs, 50, 150, 300)
-	fmt.Fprintf(out, "  Carbs      %s%7.2f g%s\n", carbs, total.Carbs, Reset)
+	fmt.Fprintf(out, "  Carbs      %s%7.2f g%s / 300 g\n", carbs, total.Carbs, Reset)
 
 	sugar := levelColor(total.Sugar, 0, 25, 50)
-	fmt.Fprintf(out, "  Free Sugar      %s%7.2f g%s\n", sugar, total.Sugar, Reset)
+	fmt.Fprintf(out, "  Sugar      %s%7.2f g%s / 50 g\n", sugar, total.Sugar, Reset)
 
 	fat := levelColor(total.Fat, 45, 75, 90)
-	fmt.Fprintf(out, "  Fat      %s%7.2f g%s\n", fat, total.Fat, Reset)
+	fmt.Fprintf(out, "  Fat        %s%7.2f g%s / 90 g\n", fat, total.Fat, Reset)
 
 	fiber := levelColor(total.Fiber, 25, 41, 50)
-	fmt.Fprintf(out, "  Fiber      %s%7.2f g%s\n", fiber, total.Fiber, Reset)
+	fmt.Fprintf(out, "  Fiber      %s%7.2f g%s / 50 g\n", fiber, total.Fiber, Reset)
 
 	salt := levelColor(total.Salt, 1, 5, 10)
-	fmt.Fprintf(out, "  Salt      %s%7.2f g%s\n", salt, total.Salt, Reset)
-
-	if len(missing) > 0 {
-		fmt.Fprintln(out, Yellow+"Not in food list (skipped): "+strings.Join(missing, ", ")+Reset)
-	}
+	fmt.Fprintf(out, "  Salt       %s%7.2f g%s / 10 g\n", salt, total.Salt, Reset)
 }
 
 func levelColor(v, greenFrom, yellowFrom, redFrom float64) string {

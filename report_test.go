@@ -106,16 +106,13 @@ func TestSumEntries(t *testing.T) {
 			{Time: reportNow, Food: "Oats", Grams: 100},
 			{Time: reportNow, Food: "Cheese", Grams: 50},
 		}
-		tot, missing := sumEntries(reportFoods, entries)
+		tot := sumEntries(reportFoods, entries)
 
 		if !near(tot.Kcal, 570) { // 370 + 200
 			t.Errorf("Kcal = %v, want 570", tot.Kcal)
 		}
 		if !near(tot.Salt, 0.92) { // 0.02 + 0.9
 			t.Errorf("Salt = %v, want 0.92", tot.Salt)
-		}
-		if len(missing) != 0 {
-			t.Errorf("missing = %v, want none", missing)
 		}
 	})
 
@@ -124,21 +121,18 @@ func TestSumEntries(t *testing.T) {
 			{Time: reportNow, Food: "Oats", Grams: 100},
 			{Time: reportNow, Food: "Pizza", Grams: 200},
 		}
-		tot, missing := sumEntries(reportFoods, entries)
+		tot := sumEntries(reportFoods, entries)
 
 		if !near(tot.Kcal, 370) {
 			t.Errorf("Kcal = %v, want 370 (Pizza is not counted)", tot.Kcal)
 		}
-		if len(missing) != 1 || missing[0] != "Pizza" {
-			t.Errorf("missing = %v, want [Pizza]", missing)
-		}
 	})
 
 	t.Run("no entries", func(t *testing.T) {
-		tot, missing := sumEntries(reportFoods, nil)
+		tot := sumEntries(reportFoods, nil)
 
-		if tot != (Totals{}) || len(missing) != 0 {
-			t.Errorf("got %+v and %v, want zeros and nothing missing", tot, missing)
+		if tot != (Totals{}) {
+			t.Errorf("got %+v, want zeros and nothing missing", tot)
 		}
 	})
 }

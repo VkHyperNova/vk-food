@@ -24,7 +24,37 @@ var (
 	mountDrive   = unlockAndMount
 )
 
-func InitBackupStorage() error {
+func Save(local, backup string, v any) error {
+	if err := writeJSON(local, v); err != nil {
+		return err
+	}
+
+	fmt.Println(Green + "Local Saved!" + Reset)
+
+	SaveBackup(backup, v)
+
+	return nil
+}
+
+func SaveBackup(destination string, v any) error {
+	if err := initBackupStorage(); err != nil {
+		if errors.Is(err, ErrBackupSkipped) {
+			fmt.Println(Yellow + "Backup skipped" + Reset)
+		} else {
+			fmt.Println(Yellow + "Backup init failed: " + err.Error() + Reset)
+		}
+		return nil
+	}
+	if err := writeJSON(destination, v); err != nil {
+		fmt.Println(Yellow + "Backup write failed: " + err.Error() + Reset)
+		return nil
+	}
+	fmt.Println(Green + "Backup Saved!" + Reset)
+
+	return nil
+}
+
+func initBackupStorage() error {
 	mounted, err := checkMounted()
 	if err != nil {
 		return fmt.Errorf("mount check failed: %w", err)
@@ -50,28 +80,6 @@ func InitBackupStorage() error {
 	if !mounted {
 		return fmt.Errorf("drive still not mounted after mount attempt")
 	}
-	return nil
-}
-
-func SaveWithBackup(local, backup string, v any) error {
-	if err := writeJSON(local, v); err != nil {
-		return err
-	}
-	fmt.Println(Green + "Local save!" + Reset)
-
-	if err := InitBackupStorage(); err != nil {
-		if errors.Is(err, ErrBackupSkipped) {
-			fmt.Println(Yellow + "Backup skipped" + Reset)
-		} else {
-			fmt.Println(Yellow + "Backup init failed: " + err.Error() + Reset)
-		}
-		return nil
-	}
-	if err := writeJSON(backup, v); err != nil {
-		fmt.Println(Yellow + "Backup write failed: " + err.Error() + Reset)
-		return nil
-	}
-	fmt.Println(Green + "Backup save!" + Reset)
 	return nil
 }
 

@@ -41,7 +41,7 @@ func TestInitBackupStorage(t *testing.T) {
 			func() (bool, error) { asked = true; return true, nil },
 			func() error { mounted = true; return nil })
 
-		if err := InitBackupStorage(); err != nil {
+		if err := initBackupStorage(); err != nil {
 			t.Fatal(err)
 		}
 		if asked || mounted {
@@ -55,7 +55,7 @@ func TestInitBackupStorage(t *testing.T) {
 			func() (bool, error) { return true, nil },
 			func() error { return nil })
 
-		err := InitBackupStorage()
+		err := initBackupStorage()
 		if err == nil || errors.Is(err, ErrBackupSkipped) {
 			t.Errorf("want a real error, got %v", err)
 		}
@@ -68,7 +68,7 @@ func TestInitBackupStorage(t *testing.T) {
 			func() (bool, error) { return false, nil },
 			func() error { mounted = true; return nil })
 
-		if err := InitBackupStorage(); !errors.Is(err, ErrBackupSkipped) {
+		if err := initBackupStorage(); !errors.Is(err, ErrBackupSkipped) {
 			t.Errorf("got %v, want ErrBackupSkipped", err)
 		}
 		if mounted {
@@ -82,7 +82,7 @@ func TestInitBackupStorage(t *testing.T) {
 			func() (bool, error) { return true, errors.New("no terminal") },
 			func() error { return nil })
 
-		if err := InitBackupStorage(); !errors.Is(err, ErrBackupSkipped) {
+		if err := initBackupStorage(); !errors.Is(err, ErrBackupSkipped) {
 			t.Errorf("got %v, want ErrBackupSkipped", err)
 		}
 	})
@@ -93,7 +93,7 @@ func TestInitBackupStorage(t *testing.T) {
 			func() (bool, error) { return true, nil },
 			func() error { return errors.New("udisksctl failed") })
 
-		err := InitBackupStorage()
+		err := initBackupStorage()
 		if err == nil || errors.Is(err, ErrBackupSkipped) {
 			t.Errorf("want a real error, got %v", err)
 		}
@@ -106,7 +106,7 @@ func TestInitBackupStorage(t *testing.T) {
 			func() (bool, error) { return true, nil },
 			func() error { return nil })
 
-		if err := InitBackupStorage(); err != nil {
+		if err := initBackupStorage(); err != nil {
 			t.Fatal(err)
 		}
 		if checks != 2 {
@@ -120,7 +120,7 @@ func TestInitBackupStorage(t *testing.T) {
 			func() (bool, error) { return true, nil },
 			func() error { return nil })
 
-		err := InitBackupStorage()
+		err := initBackupStorage()
 		if err == nil || errors.Is(err, ErrBackupSkipped) {
 			t.Errorf("want a real error, got %v", err)
 		}
@@ -254,7 +254,7 @@ func TestSaveWithBackup(t *testing.T) {
 		backup := filepath.Join(dir, "usb", "food.json")
 
 		var err error
-		out := capture(t, func() { err = SaveWithBackup(local, backup, data) })
+		out := capture(t, func() { err = Save(local, backup, data) })
 
 		if err != nil {
 			t.Fatal(err)
@@ -274,7 +274,7 @@ func TestSaveWithBackup(t *testing.T) {
 		backup := filepath.Join(dir, "usb", "food.json")
 
 		var err error
-		out := capture(t, func() { err = SaveWithBackup(local, backup, data) })
+		out := capture(t, func() { err = Save(local, backup, data) })
 
 		if err != nil {
 			t.Fatalf("a skipped backup is not an error, got %v", err)
@@ -293,7 +293,7 @@ func TestSaveWithBackup(t *testing.T) {
 		local := filepath.Join(dir, "food.json")
 
 		var err error
-		out := capture(t, func() { err = SaveWithBackup(local, filepath.Join(dir, "usb", "food.json"), data) })
+		out := capture(t, func() { err = Save(local, filepath.Join(dir, "usb", "food.json"), data) })
 
 		if err != nil {
 			t.Fatalf("backup problems must not fail the save, got %v", err)
@@ -316,7 +316,7 @@ func TestSaveWithBackup(t *testing.T) {
 		os.WriteFile(blocker, []byte("x"), 0o644)
 
 		var err error
-		out := capture(t, func() { err = SaveWithBackup(local, filepath.Join(blocker, "food.json"), data) })
+		out := capture(t, func() { err = Save(local, filepath.Join(blocker, "food.json"), data) })
 
 		if err != nil {
 			t.Fatalf("backup problems must not fail the save, got %v", err)
@@ -338,7 +338,7 @@ func TestSaveWithBackup(t *testing.T) {
 		os.WriteFile(blocker, []byte("x"), 0o644)
 		backup := filepath.Join(dir, "usb", "food.json")
 
-		if err := SaveWithBackup(filepath.Join(blocker, "food.json"), backup, data); err == nil {
+		if err := Save(filepath.Join(blocker, "food.json"), backup, data); err == nil {
 			t.Fatal("a failed local save must be returned")
 		}
 		if exists(backup) {
