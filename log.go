@@ -40,19 +40,26 @@ func SaveLog(logs []Log) error {
 func AddLog() error {
 
 	if len(os.Args) < 4 {
-		fmt.Println("Usage: go run . log <food-name> <grams>")
 		return errors.New("usage: go run . log <food-name> <grams>")
 	}
 
 	grams, err := strconv.ParseFloat(os.Args[3], 64)
 	if err != nil {
-		fmt.Println("error: grams must be a valid number")
 		return fmt.Errorf("grams must be a valid number: %w", err)
 	}
 
 	if grams <= 0 {
-		fmt.Println("error: grams must be greater than zero")
 		return errors.New("grams must be greater than zero")
+	}
+
+	foods, err := LoadFood(FoodFile)
+	if err != nil {
+		return fmt.Errorf("load food: %w", err)
+	}
+
+	food, ok := findFood(foods, os.Args[2])
+	if !ok {
+		return fmt.Errorf("%q is not in the food list, add it first with: go run . add-food", os.Args[2])
 	}
 
 	logs, err := LoadLog(LogFile)
@@ -60,7 +67,19 @@ func AddLog() error {
 		return fmt.Errorf("load log: %w", err)
 	}
 
-	logs = append(logs, Log{Time: time.Now(), Food: os.Args[2], Grams: grams})
+	logs = append(logs, Log{Time: time.Now(), Food: food.Name, Grams: grams})
 
 	return SaveLog(logs)
+}
+
+func UndoLog() error {
+	logs, err := LoadLog(LogFile)
+	if err != nil {
+		return fmt.Errorf("load log: %w", err)
+	}
+	if len(logs) == 0 {
+		return errors.New("nothing to undo")
+	}
+
+	return SaveLog(logs[:len(logs)-1])
 }

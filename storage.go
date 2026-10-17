@@ -2,10 +2,13 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -16,22 +19,10 @@ import (
 
 // These are variables so that tests can replace them with fakes.
 var (
-	checkMounted = IsDriveMounted
+	checkMounted = isDriveMounted
 	askMount     = confirmMount
 	mountDrive   = unlockAndMount
 )
-
-// confirmMount asks the user whether to mount the drive. Enter means yes.
-func confirmMount() (bool, error) {
-	mount := true // Yes is preselected, so Enter mounts
-	err := huh.NewConfirm().
-		Title("Mount?").
-		Affirmative("Yes").
-		Negative("No").
-		Value(&mount).
-		Run()
-	return mount, err
-}
 
 func InitBackupStorage() error {
 	mounted, err := checkMounted()
@@ -62,7 +53,29 @@ func InitBackupStorage() error {
 	return nil
 }
 
-func IsDriveMounted() (bool, error) {
+func SaveWithBackup(local, backup string, v any) error {
+	if err := writeJSON(local, v); err != nil {
+		return err
+	}
+	fmt.Println(Green + "Local save!" + Reset)
+
+	if err := InitBackupStorage(); err != nil {
+		if errors.Is(err, ErrBackupSkipped) {
+			fmt.Println(Yellow + "Backup skipped" + Reset)
+		} else {
+			fmt.Println(Yellow + "Backup init failed: " + err.Error() + Reset)
+		}
+		return nil
+	}
+	if err := writeJSON(backup, v); err != nil {
+		fmt.Println(Yellow + "Backup write failed: " + err.Error() + Reset)
+		return nil
+	}
+	fmt.Println(Green + "Backup save!" + Reset)
+	return nil
+}
+
+func isDriveMounted() (bool, error) {
 	if runtime.GOOS != "linux" {
 		return false, fmt.Errorf("unsupported OS: %s", runtime.GOOS)
 	}
@@ -81,7 +94,6 @@ func IsDriveMounted() (bool, error) {
 	return deviceInMounts(file, device)
 }
 
-// deviceInMounts reports whether device is listed in /proc/mounts content.
 func deviceInMounts(mounts io.Reader, device string) (bool, error) {
 	scanner := bufio.NewScanner(mounts)
 	for scanner.Scan() {
@@ -115,8 +127,6 @@ func findDeviceByLabel(label string) (string, error) {
 	return parseDeviceByLabel(string(out), label)
 }
 
-// parseDeviceByLabel finds the device with the given label in the output of
-// "lsblk -o NAME,LABEL -r -n".
 func parseDeviceByLabel(lsblkOutput, label string) (string, error) {
 	for _, line := range strings.Split(lsblkOutput, "\n") {
 		fields := strings.Fields(line)
@@ -141,4 +151,26 @@ func mountDevice(device string) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
+}
+
+func writeJSON(path string, v any) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+func confirmMount() (bool, error) {
+	mount := true // Yes is preselected, so Enter mounts
+	err := huh.NewConfirm().
+		Title("Mount?").
+		Affirmative("Yes").
+		Negative("No").
+		Value(&mount).
+		Run()
+	return mount, err
 }

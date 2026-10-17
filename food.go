@@ -104,3 +104,15 @@ func LoadFood(source string) ([]Food, error) {
 	}
 	return foods, nil
 }
+
+func UndoFood() error {
+	foods, err := LoadFood(FoodFile)
+	if err != nil {
+		return fmt.Errorf("load log: %w", err)
+	}
+	if len(foods) == 0 {
+		return errors.New("nothing to undo")
+	}
+
+	return SaveFood(foods[:len(foods)-1])
+}

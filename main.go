@@ -28,11 +28,11 @@ const (
 )
 
 // First file
-var FoodFile = filepath.Join(BaseLocal, BaseDB, "food.json")
+var FoodFile = filepath.Join(BaseLocal, BaseDB, "foods.json")
 var FoodFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "food.json")
 
 // Second file
-var LogFile = filepath.Join(BaseLocal, BaseDB, "log.json")
+var LogFile = filepath.Join(BaseLocal, BaseDB, "logs.json")
 var LogFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "log.json")
 
 var ErrBackupSkipped = errors.New("backup skipped")
@@ -44,8 +44,12 @@ func main() {
 		switch os.Args[1] {
 		case "add-food":
 			err = AddFood()
+		case "undofood":
+			err = UndoFood()
 		case "log":
 			err = AddLog()
+		case "undolog":
+			err = UndoLog()
 		default:
 			err = fmt.Errorf("unknown command: %s", os.Args[1])
 		}

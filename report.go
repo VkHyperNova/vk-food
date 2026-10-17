@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"runtime"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -206,4 +208,21 @@ func LogsOn(logs []Log, day time.Time) []Log {
 // TodayLogs returns only the entries logged today.
 func TodayLogs(logs []Log) []Log {
 	return LogsOn(logs, time.Now())
+}
+
+func ClearScreen() {
+
+	var cmd *exec.Cmd
+
+	if runtime.GOOS == "windows" {
+		cmd = exec.Command("cmd", "/c", "cls")
+	} else {
+		cmd = exec.Command("clear")
+	}
+
+	cmd.Stdout = os.Stdout
+
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintln(os.Stderr, "Error clearing screen:", err)
+	}
 }
