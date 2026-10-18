@@ -32,8 +32,8 @@ var FoodFile = filepath.Join(BaseLocal, BaseDB, "foods.json")
 var LogFile = filepath.Join(BaseLocal, BaseDB, "logs.json")
 
 // Backup on D drive \\
-var FoodFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "food.json")
-var LogFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "log.json")
+var FoodFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "foods.json")
+var LogFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "logs.json")
 
 var ErrBackupSkipped = errors.New("backup skipped")
 
