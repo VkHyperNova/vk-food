@@ -58,12 +58,10 @@ func PrintFoods() error {
 	return nil
 }
 
-// Totals is a sum of nutrients (absolute amounts, not per 100 g).
 type Totals struct {
 	Kcal, Protein, Carbs, Fat, Fiber, Sugar, Salt float64
 }
 
-// Add adds the nutrients in grams of food f to the totals.
 func (t *Totals) Add(f Food, grams float64) {
 	k := grams / 100
 	t.Kcal += f.Kcal * k
@@ -75,7 +73,6 @@ func (t *Totals) Add(f Food, grams float64) {
 	t.Salt += f.Salt * k
 }
 
-// findFood looks up a food by name, ignoring upper/lower case.
 func findFood(foods []Food, name string) (Food, bool) {
 	for _, f := range foods {
 		if strings.EqualFold(f.Name, name) {
@@ -85,8 +82,6 @@ func findFood(foods []Food, name string) (Food, bool) {
 	return Food{}, false
 }
 
-// sumEntries adds up the nutrients of entries. Entries whose food is not in
-// the food list are skipped, and their names are returned.
 func sumEntries(foods []Food, entries []Log) Totals {
 	var total Totals
 	for _, e := range entries {
@@ -101,18 +96,18 @@ func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
 	fmt.Fprintln(out, Bold+"Last 7 days"+Reset)
 
 	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', tabwriter.AlignRight)
-	fmt.Fprintln(w, "Date\tkcal\tProtein\tCarbs\tFat\t")
+	fmt.Fprintln(w, "Date\tkcal\tProtein\tCarbs\tFat\tFiber\tSugar\tSalt\t")
 	for i := 7; i >= 0; i-- {
 		day := today.AddDate(0, 0, -i)
 		date := day.Format("Mon 02 Jan")
 
 		list := LogsOn(entries, day)
 		if len(list) == 0 {
-			fmt.Fprintf(w, "%s\t-\t-\t-\t-\t\n", date)
+			fmt.Fprintf(w, "%s\t-\t-\t-\t-\t-\t-\t-\t\n", date)
 			continue
 		}
 		t := sumEntries(foods, list)
-		fmt.Fprintf(w, "%s\t%.0f\t%.1f\t%.1f\t%.1f\t\n", date, t.Kcal, t.Protein, t.Carbs, t.Fat)
+		fmt.Fprintf(w, "%s\t%.0f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t%.1f\t\n", date, t.Kcal, t.Protein, t.Carbs, t.Fat, t.Fiber, t.Sugar, t.Salt)
 	}
 	w.Flush()
 }
@@ -153,14 +148,14 @@ func printToday(out io.Writer, foods []Food, entries []Log, today time.Time) {
 	carbs := levelColor(total.Carbs, 50, 150, 300)
 	fmt.Fprintf(out, "  Carbs      %s%7.2f g%s / 300 g\n", carbs, total.Carbs, Reset)
 
-	sugar := levelColor(total.Sugar, 0, 25, 50)
-	fmt.Fprintf(out, "  Free Sugar %s%7.2f g%s / 50 g\n", sugar, total.Sugar, Reset)
-
 	fat := levelColor(total.Fat, 45, 75, 90)
 	fmt.Fprintf(out, "  Fat        %s%7.2f g%s / 90 g\n", fat, total.Fat, Reset)
 
 	fiber := levelColor(total.Fiber, 25, 41, 50)
 	fmt.Fprintf(out, "  Fiber      %s%7.2f g%s / 50 g\n", fiber, total.Fiber, Reset)
+
+	sugar := levelColor(total.Sugar, 0, 25, 50)
+	fmt.Fprintf(out, "  Free Sugar %s%7.2f g%s / 50 g\n", sugar, total.Sugar, Reset)
 
 	salt := levelColor(total.Salt, 1, 5, 10)
 	fmt.Fprintf(out, "  Salt       %s%7.2f g%s / 10 g\n", salt, total.Salt, Reset)
