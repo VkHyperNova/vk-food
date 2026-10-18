@@ -154,7 +154,7 @@ func printToday(out io.Writer, foods []Food, entries []Log, today time.Time) {
 	fmt.Fprintf(out, "  Carbs      %s%7.2f g%s / 300 g\n", carbs, total.Carbs, Reset)
 
 	sugar := levelColor(total.Sugar, 0, 25, 50)
-	fmt.Fprintf(out, "  Sugar      %s%7.2f g%s / 50 g\n", sugar, total.Sugar, Reset)
+	fmt.Fprintf(out, "  Free Sugar %s%7.2f g%s / 50 g\n", sugar, total.Sugar, Reset)
 
 	fat := levelColor(total.Fat, 45, 75, 90)
 	fmt.Fprintf(out, "  Fat        %s%7.2f g%s / 90 g\n", fat, total.Fat, Reset)

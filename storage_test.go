@@ -262,7 +262,7 @@ func TestSaveWithBackup(t *testing.T) {
 		if !exists(local) || !exists(backup) {
 			t.Errorf("local exists: %v, backup exists: %v, want both", exists(local), exists(backup))
 		}
-		if !strings.Contains(out, "Local save!") || !strings.Contains(out, "Backup save!") {
+		if !strings.Contains(out, "Local Saved!") || !strings.Contains(out, "Backup Saved!") {
 			t.Errorf("want both messages on screen:\n%s", out)
 		}
 	})

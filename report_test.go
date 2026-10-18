@@ -116,7 +116,7 @@ func TestSumEntries(t *testing.T) {
 		}
 	})
 
-	t.Run("skips unknown foods and returns their names", func(t *testing.T) {
+	t.Run("an unknown food adds nothing", func(t *testing.T) {
 		entries := []Log{
 			{Time: reportNow, Food: "Oats", Grams: 100},
 			{Time: reportNow, Food: "Pizza", Grams: 200},
@@ -132,7 +132,7 @@ func TestSumEntries(t *testing.T) {
 		tot := sumEntries(reportFoods, nil)
 
 		if tot != (Totals{}) {
-			t.Errorf("got %+v, want zeros and nothing missing", tot)
+			t.Errorf("got %+v, want all zeros", tot)
 		}
 	})
 }
@@ -399,14 +399,16 @@ func TestPrintToday(t *testing.T) {
 						saltLine = l
 					}
 				}
-				if !strings.Contains(saltLine, "Salt      "+tc.want) {
+				// the text after the label "Salt" and its spaces must start with the colour
+				afterLabel := strings.TrimLeft(strings.TrimPrefix(strings.TrimSpace(saltLine), "Salt"), " ")
+				if !strings.HasPrefix(afterLabel, tc.want) {
 					t.Errorf("salt line = %q, want colour %q right after the label", saltLine, tc.want)
 				}
 			})
 		}
 	})
 
-	t.Run("unknown food gets a ? and a warning", func(t *testing.T) {
+	t.Run("unknown food gets a ? and is not counted", func(t *testing.T) {
 		logs := []Log{
 			{Time: reportNow, Food: "Oats", Grams: 100},
 			{Time: reportNow, Food: "Pizza", Grams: 200},
@@ -416,11 +418,11 @@ func TestPrintToday(t *testing.T) {
 		printToday(&out, reportFoods, logs, reportNow)
 		s := out.String()
 
-		if !strings.Contains(s, "Not in food list (skipped): Pizza") {
-			t.Errorf("missing warning:\n%s", s)
+		if !strings.Contains(s, "Pizza") || !strings.Contains(s, "?") {
+			t.Errorf("the Pizza row should show a ?:\n%s", s)
 		}
-		if !strings.Contains(s, "?") {
-			t.Errorf("row for the unknown food should show ?:\n%s", s)
+		if !strings.Contains(s, "13.00") { // protein of the Oats only
+			t.Errorf("Pizza should add nothing to the totals:\n%s", s)
 		}
 	})
 }
