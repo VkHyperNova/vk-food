@@ -98,7 +98,7 @@ func TestAskFloat(t *testing.T) {
 		quiet(t)
 		reader := bufio.NewReader(strings.NewReader("12.5\n"))
 
-		if got := AskFloat(reader, ""); got != 12.5 {
+		if got := askFloat(reader, ""); got != 12.5 {
 			t.Errorf("got %v, want 12.5", got)
 		}
 	})
@@ -107,7 +107,7 @@ func TestAskFloat(t *testing.T) {
 		quiet(t)
 		reader := bufio.NewReader(strings.NewReader("  12.5  \n"))
 
-		if got := AskFloat(reader, ""); got != 12.5 {
+		if got := askFloat(reader, ""); got != 12.5 {
 			t.Errorf("got %v, want 12.5", got)
 		}
 	})
@@ -116,7 +116,7 @@ func TestAskFloat(t *testing.T) {
 		quiet(t)
 		reader := bufio.NewReader(strings.NewReader("0\n"))
 
-		if got := AskFloat(reader, ""); got != 0 {
+		if got := askFloat(reader, ""); got != 0 {
 			t.Errorf("got %v, want 0", got)
 		}
 	})
@@ -131,7 +131,7 @@ func TestAskFloat(t *testing.T) {
 				quiet(t)
 				reader := bufio.NewReader(strings.NewReader(answer + "\n3.5\n"))
 
-				if got := AskFloat(reader, ""); got != 3.5 {
+				if got := askFloat(reader, ""); got != 3.5 {
 					t.Errorf("got %v, want 3.5 (the answer after the bad one)", got)
 				}
 			})
@@ -148,7 +148,7 @@ func TestAskFood(t *testing.T) {
 		withStdin(t, "Oats\n370\n13\n60\n7\n10\n1\n0.02\n")
 
 		want := Food{Name: "Oats", Kcal: 370, Protein: 13, Carbs: 60, Fat: 7, Fiber: 10, Sugar: 1, Salt: 0.02}
-		if got := AskFood(); got != want {
+		if got := askFood(); got != want {
 			t.Errorf("got %+v, want %+v", got, want)
 		}
 	})
@@ -156,7 +156,7 @@ func TestAskFood(t *testing.T) {
 	t.Run("name with spaces keeps all the words", func(t *testing.T) {
 		withStdin(t, "  Peanut butter  \n600\n25\n20\n50\n6\n9\n0.01\n")
 
-		got := AskFood()
+		got := askFood()
 		if got.Name != "Peanut butter" {
 			t.Errorf("Name = %q, want %q", got.Name, "Peanut butter")
 		}
@@ -169,7 +169,7 @@ func TestAskFood(t *testing.T) {
 		// "abc" is refused, so 370 is read for calories
 		withStdin(t, "Oats\nabc\n370\n13\n60\n7\n10\n1\n0.02\n")
 
-		if got := AskFood(); got.Kcal != 370 || got.Protein != 13 {
+		if got := askFood(); got.Kcal != 370 || got.Protein != 13 {
 			t.Errorf("got %+v, want Kcal 370 and Protein 13", got)
 		}
 	})

@@ -46,6 +46,10 @@ func main() {
 			err = AddFood()
 		case "undofood":
 			err = UndoFood()
+		case "update-food":
+			err = UpdateFood()
+		case "delete-food":
+			err = DeleteFood()
 		case "log":
 			err = AddLog()
 		case "undolog":

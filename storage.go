@@ -15,14 +15,7 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-/* Mounting Storage */
-
-// These are variables so that tests can replace them with fakes.
-var (
-	checkMounted = isDriveMounted
-	askMount     = confirmMount
-	mountDrive   = unlockAndMount
-)
+/* Storage */
 
 func Save(local, backup string, v any) error {
 	if err := writeJSON(local, v); err != nil {
@@ -53,6 +46,15 @@ func SaveBackup(destination string, v any) error {
 
 	return nil
 }
+
+/* Mounting */
+
+// These are variables so that tests can replace them with fakes.
+var (
+	checkMounted = isDriveMounted
+	askMount     = confirmMount
+	mountDrive   = unlockAndMount
+)
 
 func initBackupStorage() error {
 	mounted, err := checkMounted()
