@@ -173,7 +173,7 @@ func askFood() Food {
 	f.Carbs = askFloat(reader, "Carbs (g): ")
 	f.Fat = askFloat(reader, "Fat (g): ")
 	f.Fiber = askFloat(reader, "Fiber (g): ")
-	f.Sugar = askFloat(reader, "Sugar (g): ")
+	f.Sugar = askFloat(reader, "Free Sugar (g): ")
 	f.Salt = askFloat(reader, "Salt (g): ")
 
 	return f

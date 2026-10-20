@@ -140,7 +140,7 @@ func printToday(out io.Writer, foods []Food, entries []Log, today time.Time) {
 	fmt.Fprintln(out)
 
 	kcal := levelColor(total.Kcal, 1000, 2400, 4000)
-	fmt.Fprintf(out, "  Calories   %s%7.2f kcal%s \n", kcal, total.Kcal, Reset)
+	fmt.Fprintf(out, "  Calories   %s%7.0f kcal%s \n", kcal, total.Kcal, Reset)
 
 	protein := levelColor(total.Protein, 85, 150, 180)
 	fmt.Fprintf(out, "  Protein    %s%7.2f g%s / 180 g\n", protein, total.Protein, Reset)

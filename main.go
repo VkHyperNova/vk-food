@@ -37,11 +37,31 @@ var LogFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "logs.json
 
 var ErrBackupSkipped = errors.New("backup skipped")
 
+const usage = `Usage: go run . <command>
+
+Commands:
+  (none)                      show the report
+  log                         pick a food and enter grams
+  log <food> <grams>          log a food, e.g. log oats 50
+  undo                        remove the last log entry
+  add-food                    add a new food (values per 100 g)
+  update-food <food>          change a food (Enter keeps the old value)
+  delete-food <food>          delete a food that is not in the log
+  undo-food                   remove the last added food
+  help                        show this text`
+
+func printUsage() {
+	fmt.Println(usage)
+}
+
 func main() {
 	var err error
 
 	if len(os.Args) >= 2 {
 		switch os.Args[1] {
+		case "help", "-h", "--help":
+			printUsage()
+			return
 		case "add-food":
 			err = AddFood()
 		case "undofood":
