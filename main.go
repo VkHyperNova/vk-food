@@ -26,8 +26,8 @@ const (
 	BaseDB          = "FOOD"
 	FoodsFile       = "foods.json"
 	LogsFile        = "logs.json"
-	BaseLocal       = "DATABASES"
-	// BaseLocal = "DEVELOPMENT"
+	// BaseLocal       = "DATABASES"
+	BaseLocal = "DEVELOPMENT"
 )
 
 var Foods = filepath.Join(BaseLocal, BaseDB, FoodsFile)

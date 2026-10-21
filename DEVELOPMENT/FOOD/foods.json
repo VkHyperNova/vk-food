@@ -48,5 +48,45 @@
     "Fiber": 1,
     "Sugar": 1,
     "Salt": 1
+  },
+  {
+    "Name": "swe",
+    "Kcal": 2,
+    "Protein": 1,
+    "Carbs": 1,
+    "Fat": 1,
+    "Fiber": 1,
+    "Sugar": 1,
+    "Salt": 1
+  },
+  {
+    "Name": "sasasas",
+    "Kcal": 1,
+    "Protein": 1,
+    "Carbs": 1,
+    "Fat": 1,
+    "Fiber": 1,
+    "Sugar": 1,
+    "Salt": 1
+  },
+  {
+    "Name": "asdaaaaaa",
+    "Kcal": 1,
+    "Protein": 1,
+    "Carbs": 1,
+    "Fat": 11,
+    "Fiber": 1,
+    "Sugar": 1,
+    "Salt": 1
+  },
+  {
+    "Name": "asdsssss",
+    "Kcal": 1,
+    "Protein": 1,
+    "Carbs": 1,
+    "Fat": 1,
+    "Fiber": 1,
+    "Sugar": 1,
+    "Salt": 1
   }
 ]

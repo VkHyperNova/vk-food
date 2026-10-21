@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/VkHyperNova/vkmount"
 )
 
 // Tests in this file (each function is a group of named subtests):
@@ -496,7 +498,7 @@ func TestUndoFood(t *testing.T) {
 // Helpers (used by the tests above)
 // ============================================================
 
-// useTempData points FoodFile and LogFile at a temp folder, puts a few foods in
+// useTempData points Foods and Logs at a temp folder, puts a few foods in
 // the food file, and fakes the USB drive (user answers No to "Mount?"),
 // so tests never touch your real data. It returns the log file path.
 func useTempData(t *testing.T) string {
@@ -514,7 +516,7 @@ func useTempData(t *testing.T) string {
 	FoodsBackup = filepath.Join(dir, "usb", "food.json")
 	Logs = filepath.Join(dir, "local", "log.json")
 	LogsBackup = filepath.Join(dir, "usb", "log.json")
-	fakeDrive(t, false, nil, false)
+	fakeMount(t, vkmount.ErrSkipped) // the user answers No to "Mount?"
 	quiet(t)
 
 	foods := []Food{{Name: "Oats", Kcal: 370}, {Name: "Cheese", Kcal: 400}, {Name: "Peanut butter", Kcal: 600}}
@@ -534,7 +536,7 @@ func withArgs(t *testing.T, args ...string) {
 	t.Cleanup(func() { os.Args = old })
 }
 
-// seedLogs writes three log entries into LogFile (call after useTempData).
+// seedLogs writes three log entries into Logs (call after useTempData).
 func seedLogs(t *testing.T) {
 	t.Helper()
 
@@ -559,15 +561,22 @@ func readFile(t *testing.T, path string) string {
 	return string(data)
 }
 
-// fakeDrive sets how the USB drive behaves and restores the real functions after the test.
-func fakeDrive(t *testing.T, mounted bool, checkErr error, mountAnswer bool) {
+// fakeMount replaces the real mounting of the backup drive for the length of
+// the test. err is what mounting "returns": nil means the drive is ready,
+// vkmount.ErrSkipped means the user answered No, anything else is a failure.
+// It returns a counter of how many times mounting was asked for.
+func fakeMount(t *testing.T, err error) *int {
 	t.Helper()
 
-	oldCheck, oldAsk := checkMounted, askMount
-	t.Cleanup(func() { checkMounted, askMount = oldCheck, oldAsk })
+	calls := 0
+	old := mountBackup
+	t.Cleanup(func() { mountBackup = old })
 
-	checkMounted = func() (bool, error) { return mounted, checkErr }
-	askMount = func() (bool, error) { return mountAnswer, nil }
+	mountBackup = func() error {
+		calls++
+		return err
+	}
+	return &calls
 }
 
 func exists(path string) bool {

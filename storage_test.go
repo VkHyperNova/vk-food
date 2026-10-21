@@ -7,342 +7,180 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/VkHyperNova/vkmount"
 )
 
 // Tests in this file (each function is a group of named subtests):
-//   TestInitBackupStorage   - the "Mount?" flow before a backup
-//   TestDeviceInMounts      - is the drive listed in /proc/mounts
-//   TestParseDeviceByLabel  - finding the drive in the lsblk output
-//   TestDecodeLsblkLabel    - turning \x20 back into a space
-//   TestSaveWithBackup      - saving locally, then to the USB drive
-//   TestWriteJSON           - writing a JSON file
+//   TestSave        - saving locally, then to the USB drive
+//   TestWriteJSON   - writing a JSON file
 //
-// Not tested, because they need the real drive, lsblk or a key press:
-// IsDriveMounted, unlockAndMount, findDeviceByLabel, mountDevice, confirmMount.
+// Mounting the drive and the Yes/No question live in the vkmount package and
+// are tested there. Here the mounting is replaced by fakeMount (log_test.go),
+// so no real drive and no question on screen are needed.
 //
-// This file also uses the helpers fakeDrive, quiet and exists from log_test.go
-// and capture from report_test.go.
+// This file also uses the helpers fakeMount, quiet, exists and readFile from
+// log_test.go and capture from report_test.go.
 //
-// Run one group:  go test -v -run TestSaveWithBackup
+// Run one group:  go test -v -run TestSave
 // Run one test (spaces in the name become _):
-//                   go test -v -run 'TestSaveWithBackup/skipped'
-//
-// The helper function is at the bottom of the file.
+//                   go test -v -run 'TestSave/the_user_says_no'
 
 // ============================================================
-// InitBackupStorage
+// Save
 // ============================================================
 
-func TestInitBackupStorage(t *testing.T) {
-	t.Run("already mounted: no question, no mounting", func(t *testing.T) {
-		asked, mounted := false, false
-		setDrive(t,
-			func() (bool, error) { return true, nil },
-			func() (bool, error) { asked = true; return true, nil },
-			func() error { mounted = true; return nil })
+func TestSave(t *testing.T) {
+	foods := []Food{{Name: "Oats", Kcal: 370}}
 
-		if err := initBackupStorage(); err != nil {
-			t.Fatal(err)
-		}
-		if asked || mounted {
-			t.Errorf("asked = %v, mounted = %v, want both false", asked, mounted)
-		}
-	})
-
-	t.Run("the mount check fails", func(t *testing.T) {
-		setDrive(t,
-			func() (bool, error) { return false, errors.New("boom") },
-			func() (bool, error) { return true, nil },
-			func() error { return nil })
-
-		err := initBackupStorage()
-		if err == nil || errors.Is(err, ErrBackupSkipped) {
-			t.Errorf("want a real error, got %v", err)
-		}
-	})
-
-	t.Run("user says no: backup skipped", func(t *testing.T) {
-		mounted := false
-		setDrive(t,
-			func() (bool, error) { return false, nil },
-			func() (bool, error) { return false, nil },
-			func() error { mounted = true; return nil })
-
-		if err := initBackupStorage(); !errors.Is(err, ErrBackupSkipped) {
-			t.Errorf("got %v, want ErrBackupSkipped", err)
-		}
-		if mounted {
-			t.Error("the drive must not be mounted after a No")
-		}
-	})
-
-	t.Run("the question fails: backup skipped", func(t *testing.T) {
-		setDrive(t,
-			func() (bool, error) { return false, nil },
-			func() (bool, error) { return true, errors.New("no terminal") },
-			func() error { return nil })
-
-		if err := initBackupStorage(); !errors.Is(err, ErrBackupSkipped) {
-			t.Errorf("got %v, want ErrBackupSkipped", err)
-		}
-	})
-
-	t.Run("mounting fails", func(t *testing.T) {
-		setDrive(t,
-			func() (bool, error) { return false, nil },
-			func() (bool, error) { return true, nil },
-			func() error { return errors.New("udisksctl failed") })
-
-		err := initBackupStorage()
-		if err == nil || errors.Is(err, ErrBackupSkipped) {
-			t.Errorf("want a real error, got %v", err)
-		}
-	})
-
-	t.Run("mounting works and the drive shows up", func(t *testing.T) {
-		checks := 0
-		setDrive(t,
-			func() (bool, error) { checks++; return checks > 1, nil }, // no, then yes
-			func() (bool, error) { return true, nil },
-			func() error { return nil })
-
-		if err := initBackupStorage(); err != nil {
-			t.Fatal(err)
-		}
-		if checks != 2 {
-			t.Errorf("checked %d times, want 2 (before and after mounting)", checks)
-		}
-	})
-
-	t.Run("mounting works but the drive still is not there", func(t *testing.T) {
-		setDrive(t,
-			func() (bool, error) { return false, nil },
-			func() (bool, error) { return true, nil },
-			func() error { return nil })
-
-		err := initBackupStorage()
-		if err == nil || errors.Is(err, ErrBackupSkipped) {
-			t.Errorf("want a real error, got %v", err)
-		}
-	})
-}
-
-// ============================================================
-// deviceInMounts
-// ============================================================
-
-func TestDeviceInMounts(t *testing.T) {
-	mounts := "sysfs /sys sysfs rw 0 0\n" +
-		"/dev/sda2 / ext4 rw 0 0\n" +
-		"/dev/sdb1 /media/veikko/VK\\040DATA exfat rw 0 0\n"
-
-	t.Run("finds a mounted device", func(t *testing.T) {
-		got, err := deviceInMounts(strings.NewReader(mounts), "/dev/sdb1")
-		if err != nil || !got {
-			t.Errorf("got %v, %v, want true", got, err)
-		}
-	})
-
-	t.Run("device that is not mounted", func(t *testing.T) {
-		got, err := deviceInMounts(strings.NewReader(mounts), "/dev/sdc1")
-		if err != nil || got {
-			t.Errorf("got %v, %v, want false", got, err)
-		}
-	})
-
-	t.Run("a longer name does not match (sdb1 is not sdb10)", func(t *testing.T) {
-		got, _ := deviceInMounts(strings.NewReader("/dev/sdb10 /mnt ext4 rw 0 0\n"), "/dev/sdb1")
-		if got {
-			t.Error("/dev/sdb1 must not match /dev/sdb10")
-		}
-	})
-
-	t.Run("only the first column counts", func(t *testing.T) {
-		got, _ := deviceInMounts(strings.NewReader("tmpfs /dev/sdb1 tmpfs rw 0 0\n"), "/dev/sdb1")
-		if got {
-			t.Error("a mount point named /dev/sdb1 is not the device")
-		}
-	})
-
-	t.Run("empty input", func(t *testing.T) {
-		got, err := deviceInMounts(strings.NewReader(""), "/dev/sdb1")
-		if err != nil || got {
-			t.Errorf("got %v, %v, want false", got, err)
-		}
-	})
-}
-
-// ============================================================
-// parseDeviceByLabel
-// ============================================================
-
-func TestParseDeviceByLabel(t *testing.T) {
-	t.Run("finds the device", func(t *testing.T) {
-		out := "sda\nsda1 EFI\nsda2 root\nsdb1 VK\\x20DATA\n"
-
-		got, err := parseDeviceByLabel(out, "VK DATA")
-		if err != nil || got != "/dev/sdb1" {
-			t.Errorf("got %q, %v, want /dev/sdb1", got, err)
-		}
-	})
-
-	t.Run("label without spaces", func(t *testing.T) {
-		got, err := parseDeviceByLabel("sdb1 BACKUP\n", "BACKUP")
-		if err != nil || got != "/dev/sdb1" {
-			t.Errorf("got %q, %v", got, err)
-		}
-	})
-
-	t.Run("skips devices without a label", func(t *testing.T) {
-		got, err := parseDeviceByLabel("sda\nsdb\nsdc1 VK\\x20DATA\n", "VK DATA")
-		if err != nil || got != "/dev/sdc1" {
-			t.Errorf("got %q, %v, want /dev/sdc1", got, err)
-		}
-	})
-
-	t.Run("drive not plugged in is an error naming the label", func(t *testing.T) {
-		_, err := parseDeviceByLabel("sda1 EFI\nsda2 root\n", "VK DATA")
-		if err == nil || !strings.Contains(err.Error(), "VK DATA") {
-			t.Errorf("want an error that names the label, got %v", err)
-		}
-	})
-
-	t.Run("empty output is an error", func(t *testing.T) {
-		if _, err := parseDeviceByLabel("", "VK DATA"); err == nil {
-			t.Error("expected an error")
-		}
-	})
-}
-
-// ============================================================
-// decodeLsblkLabel
-// ============================================================
-
-func TestDecodeLsblkLabel(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{"space", `VK\x20DATA`, "VK DATA"},
-		{"tab", `A\x09B`, "A\tB"},
-		{"newline", `A\x0aB`, "A\nB"},
-		{"backslash", `A\x5cB`, `A\B`},
-		{"plain text stays as it is", "BACKUP", "BACKUP"},
-		{"several codes", `A\x20B\x20C`, "A B C"},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := decodeLsblkLabel(tc.in); got != tc.want {
-				t.Errorf("got %q, want %q", got, tc.want)
-			}
-		})
-	}
-}
-
-// ============================================================
-// SaveWithBackup
-// ============================================================
-
-func TestSaveWithBackup(t *testing.T) {
-	data := []Food{{Name: "Oats"}}
-
-	t.Run("drive mounted: local and backup are written", func(t *testing.T) {
-		fakeDrive(t, true, nil, false)
+	t.Run("drive ready: saved locally and on the drive", func(t *testing.T) {
 		dir := t.TempDir()
-		local := filepath.Join(dir, "local", "food.json")
-		backup := filepath.Join(dir, "usb", "food.json")
+		local, backup := filepath.Join(dir, "local.json"), filepath.Join(dir, "usb", "backup.json")
+		fakeMount(t, nil)
 
-		var err error
-		out := capture(t, func() { err = Save(local, backup, data) })
-
-		if err != nil {
+		if err := Save(local, backup, foods); err != nil {
 			t.Fatal(err)
 		}
+
 		if !exists(local) || !exists(backup) {
-			t.Errorf("local exists: %v, backup exists: %v, want both", exists(local), exists(backup))
+			t.Fatalf("local exists = %v, backup exists = %v, want both", exists(local), exists(backup))
 		}
-		if !strings.Contains(out, "Local Saved!") || !strings.Contains(out, "Backup Saved!") {
-			t.Errorf("want both messages on screen:\n%s", out)
-		}
-	})
-
-	t.Run("skipped: only local is written", func(t *testing.T) {
-		fakeDrive(t, false, nil, false) // not mounted, user answers No
-		dir := t.TempDir()
-		local := filepath.Join(dir, "local", "food.json")
-		backup := filepath.Join(dir, "usb", "food.json")
-
-		var err error
-		out := capture(t, func() { err = Save(local, backup, data) })
-
-		if err != nil {
-			t.Fatalf("a skipped backup is not an error, got %v", err)
-		}
-		if !exists(local) || exists(backup) {
-			t.Errorf("local exists: %v, backup exists: %v, want true and false", exists(local), exists(backup))
-		}
-		if !strings.Contains(out, "Backup skipped") {
-			t.Errorf("want the skipped message:\n%s", out)
+		if readFile(t, local) != readFile(t, backup) {
+			t.Error("the backup must have the same content as the local file")
 		}
 	})
 
-	t.Run("the drive check fails: local is still saved", func(t *testing.T) {
-		fakeDrive(t, false, errors.New("boom"), false)
+	t.Run("the user says no: only the local file", func(t *testing.T) {
 		dir := t.TempDir()
-		local := filepath.Join(dir, "food.json")
+		local, backup := filepath.Join(dir, "local.json"), filepath.Join(dir, "usb", "backup.json")
+		fakeMount(t, vkmount.ErrSkipped)
 
-		var err error
-		out := capture(t, func() { err = Save(local, filepath.Join(dir, "usb", "food.json"), data) })
-
-		if err != nil {
-			t.Fatalf("backup problems must not fail the save, got %v", err)
+		if err := Save(local, backup, foods); err != nil {
+			t.Fatalf("a skipped backup is not an error: %v", err)
 		}
+
 		if !exists(local) {
-			t.Error("local file should be saved")
-		}
-		if !strings.Contains(out, "Backup init failed") {
-			t.Errorf("want the failure message:\n%s", out)
-		}
-	})
-
-	t.Run("the backup write fails: local is still saved", func(t *testing.T) {
-		fakeDrive(t, true, nil, false)
-		dir := t.TempDir()
-		local := filepath.Join(dir, "food.json")
-
-		// a plain file where the backup folder should be, so the backup cannot be written
-		blocker := filepath.Join(dir, "blocker")
-		os.WriteFile(blocker, []byte("x"), 0o644)
-
-		var err error
-		out := capture(t, func() { err = Save(local, filepath.Join(blocker, "food.json"), data) })
-
-		if err != nil {
-			t.Fatalf("backup problems must not fail the save, got %v", err)
-		}
-		if !exists(local) {
-			t.Error("local file should be saved")
-		}
-		if !strings.Contains(out, "Backup write failed") {
-			t.Errorf("want the failure message:\n%s", out)
-		}
-	})
-
-	t.Run("the local write fails: error, and no backup", func(t *testing.T) {
-		fakeDrive(t, true, nil, false)
-		quiet(t)
-		dir := t.TempDir()
-
-		blocker := filepath.Join(dir, "blocker")
-		os.WriteFile(blocker, []byte("x"), 0o644)
-		backup := filepath.Join(dir, "usb", "food.json")
-
-		if err := Save(filepath.Join(blocker, "food.json"), backup, data); err == nil {
-			t.Fatal("a failed local save must be returned")
+			t.Error("the local file must be saved")
 		}
 		if exists(backup) {
-			t.Error("no backup should be written when the local save failed")
+			t.Error("nothing may be written to the drive after No")
+		}
+	})
+
+	t.Run("mounting fails: error, but the local file is saved", func(t *testing.T) {
+		dir := t.TempDir()
+		local, backup := filepath.Join(dir, "local.json"), filepath.Join(dir, "usb", "backup.json")
+		boom := errors.New("target is busy")
+		fakeMount(t, boom)
+
+		err := Save(local, backup, foods)
+		if !errors.Is(err, boom) {
+			t.Fatalf("err = %v, want %v", err, boom)
+		}
+
+		if !exists(local) {
+			t.Error("the local file must be saved before the drive is tried")
+		}
+		if exists(backup) {
+			t.Error("nothing may be written to the drive when mounting failed")
+		}
+	})
+
+	t.Run("writing the backup fails: error, but the local file is saved", func(t *testing.T) {
+		dir := t.TempDir()
+		local := filepath.Join(dir, "local.json")
+		blocker := filepath.Join(dir, "blocker")
+		os.WriteFile(blocker, []byte("x"), 0o644)
+		backup := filepath.Join(blocker, "backup.json") // a file where the folder should be
+		fakeMount(t, nil)
+
+		if err := Save(local, backup, foods); err == nil {
+			t.Fatal("expected an error")
+		}
+		if !exists(local) {
+			t.Error("the local file must be saved")
+		}
+	})
+
+	t.Run("writing the local file fails: error, the drive is not touched", func(t *testing.T) {
+		dir := t.TempDir()
+		blocker := filepath.Join(dir, "blocker")
+		os.WriteFile(blocker, []byte("x"), 0o644)
+		local := filepath.Join(blocker, "local.json") // a file where the folder should be
+		backup := filepath.Join(dir, "usb", "backup.json")
+		calls := fakeMount(t, nil)
+
+		if err := Save(local, backup, foods); err == nil {
+			t.Fatal("expected an error")
+		}
+		if *calls != 0 {
+			t.Errorf("mounting was asked for %d times, want 0 (nothing to back up)", *calls)
+		}
+		if exists(backup) {
+			t.Error("no backup without a local save")
+		}
+	})
+
+	t.Run("asks to mount once per save", func(t *testing.T) {
+		dir := t.TempDir()
+		calls := fakeMount(t, nil)
+
+		Save(filepath.Join(dir, "a.json"), filepath.Join(dir, "usb", "a.json"), foods)
+		if *calls != 1 {
+			t.Errorf("mounting was asked for %d times, want 1", *calls)
+		}
+	})
+
+	t.Run("a second save replaces both files", func(t *testing.T) {
+		dir := t.TempDir()
+		local, backup := filepath.Join(dir, "local.json"), filepath.Join(dir, "usb", "backup.json")
+		fakeMount(t, nil)
+
+		Save(local, backup, []Food{{Name: "A"}, {Name: "B"}})
+		if err := Save(local, backup, []Food{{Name: "C"}}); err != nil {
+			t.Fatal(err)
+		}
+
+		for _, path := range []string{local, backup} {
+			var out []Food
+			json.Unmarshal([]byte(readFile(t, path)), &out)
+			if len(out) != 1 || out[0].Name != "C" {
+				t.Errorf("%s = %+v, want only C", path, out)
+			}
+		}
+	})
+
+	t.Run("prints what happened", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			mount error
+			want  []string
+			not   []string
+		}{
+			{"drive ready", nil, []string{"Local Saved!", "Backup Saved!"}, []string{"skipped"}},
+			{"user says no", vkmount.ErrSkipped, []string{"Local Saved!"}, []string{"Backup Saved!"}},
+			{"mounting fails", errors.New("boom"), []string{"Local Saved!"}, []string{"Backup Saved!", "skipped"}},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				dir := t.TempDir()
+				fakeMount(t, tc.mount)
+
+				out := capture(t, func() {
+					Save(filepath.Join(dir, "local.json"), filepath.Join(dir, "usb", "backup.json"), foods)
+				})
+
+				for _, want := range tc.want {
+					if !strings.Contains(out, want) {
+						t.Errorf("output missing %q:\n%s", want, out)
+					}
+				}
+				for _, not := range tc.not {
+					if strings.Contains(out, not) {
+						t.Errorf("output should not contain %q:\n%s", not, out)
+					}
+				}
+			})
 		}
 	})
 }
@@ -415,19 +253,4 @@ func TestWriteJSON(t *testing.T) {
 			t.Error("expected an error")
 		}
 	})
-}
-
-// ============================================================
-// Helper (used by the tests above)
-// ============================================================
-
-// setDrive replaces the three drive functions with fakes for the length of the
-// test: check (is it mounted?), ask (the "Mount?" question) and mount.
-func setDrive(t *testing.T, check func() (bool, error), ask func() (bool, error), mount func() error) {
-	t.Helper()
-
-	oldCheck, oldAsk, oldMount := checkMounted, askMount, mountDrive
-	t.Cleanup(func() { checkMounted, askMount, mountDrive = oldCheck, oldAsk, oldMount })
-
-	checkMounted, askMount, mountDrive = check, ask, mount
 }

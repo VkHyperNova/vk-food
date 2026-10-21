@@ -5,6 +5,7 @@ go 1.26.0
 require github.com/peterh/liner v1.2.3
 
 require (
+	github.com/VkHyperNova/vkmount v0.0.0-20261021190938-365b1441c284 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/catppuccin/go v0.3.0 // indirect
