@@ -24,16 +24,18 @@ const (
 	driveLabel      = "VK DATA"
 	driveMountPoint = "/media/veikko/VK DATA"
 	BaseDB          = "FOOD"
+	FoodsFile       = "foods.json"
+	LogsFile        = "logs.json"
 	BaseLocal       = "DATABASES"
 	// BaseLocal = "DEVELOPMENT"
 )
 
-var FoodFile = filepath.Join(BaseLocal, BaseDB, "foods.json")
-var LogFile = filepath.Join(BaseLocal, BaseDB, "logs.json")
+var Foods = filepath.Join(BaseLocal, BaseDB, FoodsFile)
+var Logs = filepath.Join(BaseLocal, BaseDB, LogsFile)
 
 // Backup on D drive \\
-var FoodFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "foods.json")
-var LogFileBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, "logs.json")
+var FoodsBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, FoodsFile)
+var LogsBackup = filepath.Join(driveMountPoint, BaseLocal, BaseDB, LogsFile)
 
 var ErrBackupSkipped = errors.New("backup skipped")
 
@@ -43,7 +45,7 @@ Commands:
   (none)                      show the report
   log                         pick a food and enter grams
   log <food> <grams>          log a food, e.g. log oats 50
-  undo                        remove the last log entry
+  undo-log                    remove the last log entry
   add-food                    add a new food (values per 100 g)
   update-food <food>          change a food (Enter keeps the old value)
   delete-food <food>          delete a food that is not in the log
@@ -64,7 +66,7 @@ func main() {
 			return
 		case "add-food":
 			err = AddFood()
-		case "undofood":
+		case "undo-food":
 			err = UndoFood()
 		case "update-food":
 			err = UpdateFood()
@@ -72,10 +74,10 @@ func main() {
 			err = DeleteFood()
 		case "log":
 			err = AddLog()
-		case "undolog":
+		case "undo-log":
 			err = UndoLog()
 		default:
-			err = fmt.Errorf("unknown command: %s", os.Args[1])
+			err = fmt.Errorf("unknown command: %s (run: go run . help)", os.Args[1])
 		}
 	}
 

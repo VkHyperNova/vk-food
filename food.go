@@ -27,7 +27,7 @@ type Food struct {
 
 func AddFood() error {
 
-	foods, err := LoadFood(FoodFile)
+	foods, err := LoadFood(Foods)
 	if err != nil {
 		return fmt.Errorf("load food: %w", err)
 	}
@@ -43,7 +43,7 @@ func AddFood() error {
 }
 
 func UndoFood() error {
-	foods, err := LoadFood(FoodFile)
+	foods, err := LoadFood(Foods)
 	if err != nil {
 		return fmt.Errorf("load log: %w", err)
 	}
@@ -58,7 +58,7 @@ func DeleteFood() error {
 	if len(os.Args) < 3 {
 		return errors.New("usage: go run . delete-food <food-name>")
 	}
-	foods, err := LoadFood(FoodFile)
+	foods, err := LoadFood(Foods)
 	if err != nil {
 		return fmt.Errorf("load food: %w", err)
 	}
@@ -66,7 +66,7 @@ func DeleteFood() error {
 	if i < 0 {
 		return fmt.Errorf("%q is not in the food list", os.Args[2])
 	}
-	logs, err := LoadLog(LogFile)
+	logs, err := LoadLog(Logs)
 	if err != nil {
 		return fmt.Errorf("load log: %w", err)
 	}
@@ -85,7 +85,7 @@ func UpdateFood() error {
 	}
 
 	// read food.json into a slice
-	foods, err := LoadFood(FoodFile)
+	foods, err := LoadFood(Foods)
 	if err != nil {
 		return fmt.Errorf("load food: %w", err)
 	}
@@ -97,7 +97,7 @@ func UpdateFood() error {
 	}
 
 	// read log.json too, because a rename must also change old log entries
-	logs, err := LoadLog(LogFile)
+	logs, err := LoadLog(Logs)
 	if err != nil {
 		return fmt.Errorf("load log: %w", err)
 	}
@@ -137,7 +137,7 @@ func UpdateFood() error {
 /* Storage */
 
 func SaveFood(foods []Food) error {
-	return Save(FoodFile, FoodFileBackup, foods)
+	return Save(Foods, FoodsBackup, foods)
 }
 
 func LoadFood(source string) ([]Food, error) {

@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -13,15 +14,15 @@ import (
 //   TestFindFood     - looking up a food by name
 //   TestSumEntries   - adding up many log entries
 //   TestLevelColor   - white / green / yellow / red for a value
+//   TestLevelsOf     - the limits of each nutrient (calories, protein, ... salt)
+//   TestCell         - one coloured table cell
 //   TestSameDay      - are two times on the same day
 //   TestLogsOn       - log entries of one day
-//   TestTodayLogs    - log entries of today
-//   TestPrintFoods   - the table of all foods
 //   TestPrintWeek    - the "Last 7 days" table
 //   TestPrintToday   - the "Today" table and the totals
 //   TestReport       - the whole report on screen
 //
-// Not tested: ClearScreen (it only runs the "clear" command).
+// Not tested: clearScreen (it only runs the "clear" command).
 // This file also uses the helpers useTempData and seedLogs from log_test.go.
 //
 // Run one group:  go test -v -run TestPrintToday
@@ -31,13 +32,13 @@ import (
 // The helpers are at the bottom of the file.
 
 // ============================================================
-// Totals.Add
+// Totals.add
 // ============================================================
 
 func TestTotalsAdd(t *testing.T) {
 	t.Run("scales the values by the grams", func(t *testing.T) {
 		var tot Totals
-		tot.Add(reportFoods[0], 50) // Oats, half of 100 g
+		tot.add(reportFoods[0], 50) // Oats, half of 100 g
 
 		if !near(tot.Kcal, 185) || !near(tot.Protein, 6.5) || !near(tot.Fiber, 5) {
 			t.Errorf("unexpected totals: %+v", tot)
@@ -46,8 +47,8 @@ func TestTotalsAdd(t *testing.T) {
 
 	t.Run("adds up over several calls", func(t *testing.T) {
 		var tot Totals
-		tot.Add(reportFoods[0], 50)
-		tot.Add(reportFoods[0], 50)
+		tot.add(reportFoods[0], 50)
+		tot.add(reportFoods[0], 50)
 
 		if !near(tot.Kcal, 370) || !near(tot.Protein, 13) {
 			t.Errorf("unexpected totals: %+v", tot)
@@ -56,7 +57,7 @@ func TestTotalsAdd(t *testing.T) {
 
 	t.Run("zero grams adds nothing", func(t *testing.T) {
 		var tot Totals
-		tot.Add(reportFoods[0], 0)
+		tot.add(reportFoods[0], 0)
 
 		if tot != (Totals{}) {
 			t.Errorf("want all zeros, got %+v", tot)
@@ -170,6 +171,88 @@ func TestLevelColor(t *testing.T) {
 }
 
 // ============================================================
+// levelsOf
+// ============================================================
+
+// The limits of each nutrient: white below green, green up to the yellow limit,
+// yellow up to the red limit, red above it. Change the numbers here when you
+// change them in levelsOf.
+func TestLevelsOf(t *testing.T) {
+	tests := []struct {
+		name               string
+		green, yellow, red float64
+		set                func(*Totals, float64)
+		get                func(Levels) string
+	}{
+		{"calories", 0, 2400, 3100, func(t *Totals, v float64) { t.Kcal = v }, func(l Levels) string { return l.Kcal }},
+		{"protein", 85, 150, 180, func(t *Totals, v float64) { t.Protein = v }, func(l Levels) string { return l.Protein }},
+		{"carbs", 50, 150, 300, func(t *Totals, v float64) { t.Carbs = v }, func(l Levels) string { return l.Carbs }},
+		{"fat", 45, 75, 90, func(t *Totals, v float64) { t.Fat = v }, func(l Levels) string { return l.Fat }},
+		{"fiber", 25, 41, 50, func(t *Totals, v float64) { t.Fiber = v }, func(l Levels) string { return l.Fiber }},
+		{"sugar", 0, 25, 50, func(t *Totals, v float64) { t.Sugar = v }, func(l Levels) string { return l.Sugar }},
+		{"salt", 0, 4, 5, func(t *Totals, v float64) { t.Salt = v }, func(l Levels) string { return l.Salt }},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			colourAt := func(v float64) string {
+				var tot Totals
+				tc.set(&tot, v)
+				return tc.get(levelsOf(tot))
+			}
+
+			check := func(v float64, want string) {
+				t.Helper()
+				if got := colourAt(v); got != want {
+					t.Errorf("%v = %q, want %q", v, got, want)
+				}
+			}
+
+			if tc.green > 0 {
+				check(tc.green-0.1, Reset) // just below green is white
+			}
+			check(tc.green, Bold+Green)
+			check(tc.yellow, Bold+Green) // the yellow limit itself is still green
+			check(tc.yellow+0.1, Bold+Yellow)
+			check(tc.red, Bold+Yellow) // the red limit itself is still yellow
+			check(tc.red+0.1, Bold+Red)
+		})
+	}
+
+	t.Run("nothing eaten", func(t *testing.T) {
+		got := levelsOf(Totals{})
+		// the nutrients that turn green from 0 are green, the others white
+		if got.Kcal != Bold+Green || got.Sugar != Bold+Green || got.Salt != Bold+Green {
+			t.Errorf("calories, sugar and salt start green at 0: %+v", got)
+		}
+		if got.Protein != Reset || got.Carbs != Reset || got.Fat != Reset || got.Fiber != Reset {
+			t.Errorf("protein, carbs, fat and fiber start white: %+v", got)
+		}
+	})
+}
+
+// ============================================================
+// cell
+// ============================================================
+
+func TestCell(t *testing.T) {
+	t.Run("pads to 9 characters before the colour", func(t *testing.T) {
+		want := Bold + Green + "       12" + Reset
+		if got := cell(Bold+Green, "12"); got != want {
+			t.Errorf("got %q, want %q", got, want)
+		}
+	})
+
+	t.Run("visible width is 9 without the colour codes", func(t *testing.T) {
+		for _, text := range []string{"-", "0", "1234", "203.0"} {
+			if got := stripColour(cell(Bold+Red, text)); len(got) != 9 {
+				t.Errorf("cell(%q) is %d wide, want 9: %q", text, len(got), got)
+			}
+		}
+	})
+}
+
+// ============================================================
 // sameDay
 // ============================================================
 
@@ -203,7 +286,7 @@ func TestSameDay(t *testing.T) {
 }
 
 // ============================================================
-// LogsOn and TodayLogs
+// logsOn
 // ============================================================
 
 func TestLogsOn(t *testing.T) {
@@ -215,10 +298,10 @@ func TestLogsOn(t *testing.T) {
 			{Time: reportNow.Add(-3 * time.Hour), Food: "Oats", Grams: 20},
 		}
 
-		if got := LogsOn(logs, reportNow); len(got) != 2 {
+		if got := logsOn(logs, reportNow); len(got) != 2 {
 			t.Errorf("today: got %d entries, want 2", len(got))
 		}
-		if got := LogsOn(logs, yesterday); len(got) != 1 {
+		if got := logsOn(logs, yesterday); len(got) != 1 {
 			t.Errorf("yesterday: got %d entries, want 1", len(got))
 		}
 	})
@@ -226,68 +309,8 @@ func TestLogsOn(t *testing.T) {
 	t.Run("a day without entries", func(t *testing.T) {
 		logs := []Log{{Time: reportNow, Food: "Oats", Grams: 50}}
 
-		if got := LogsOn(logs, reportNow.AddDate(0, 0, -5)); len(got) != 0 {
+		if got := logsOn(logs, reportNow.AddDate(0, 0, -5)); len(got) != 0 {
 			t.Errorf("got %d entries, want 0", len(got))
-		}
-	})
-}
-
-func TestTodayLogs(t *testing.T) {
-	t.Run("returns only today's entries", func(t *testing.T) {
-		logs := []Log{
-			{Time: time.Now(), Food: "Oats", Grams: 50},
-			{Time: time.Now().AddDate(0, 0, -1), Food: "Cheese", Grams: 30},
-		}
-
-		got := TodayLogs(logs)
-		if len(got) != 1 || got[0].Food != "Oats" {
-			t.Errorf("got %+v, want only Oats", got)
-		}
-	})
-}
-
-// ============================================================
-// PrintFoods
-// ============================================================
-
-func TestPrintFoods(t *testing.T) {
-	t.Run("prints a header and one row per food", func(t *testing.T) {
-		useTempData(t) // saves Oats, Cheese, Peanut butter
-
-		var err error
-		out := capture(t, func() { err = PrintFoods() })
-
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, want := range []string{"Name", "Kcal", "Salt", "Oats", "Cheese", "Peanut butter", "370.0"} {
-			if !strings.Contains(out, want) {
-				t.Errorf("output missing %q:\n%s", want, out)
-			}
-		}
-	})
-
-	t.Run("no food file prints only the header", func(t *testing.T) {
-		useTempData(t)
-		os.Remove(FoodFile)
-
-		var err error
-		out := capture(t, func() { err = PrintFoods() })
-
-		if err != nil {
-			t.Fatalf("a missing file is not an error, got %v", err)
-		}
-		if !strings.Contains(out, "Name") || strings.Contains(out, "Oats") {
-			t.Errorf("want only the header:\n%s", out)
-		}
-	})
-
-	t.Run("broken food file is an error", func(t *testing.T) {
-		useTempData(t)
-		os.WriteFile(FoodFile, []byte("not json"), 0o644)
-
-		if err := PrintFoods(); err == nil {
-			t.Error("expected an error")
 		}
 	})
 }
@@ -325,6 +348,52 @@ func TestPrintWeek(t *testing.T) {
 	t.Run("days without entries show a dash", func(t *testing.T) {
 		if !strings.Contains(s, " -") {
 			t.Errorf("empty days should show -:\n%s", s)
+		}
+	})
+
+	t.Run("days without entries have no colour", func(t *testing.T) {
+		for _, line := range strings.Split(s, "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "Wed 07 Oct") && strings.Contains(line, "\033[") {
+				t.Errorf("an empty day should not be coloured: %q", line)
+			}
+		}
+	})
+
+	t.Run("columns line up when the colours are removed", func(t *testing.T) {
+		// 10 for the date + 7 columns of 9
+		for _, line := range strings.Split(strings.TrimSpace(stripColour(s)), "\n")[1:] {
+			if len(line) != 10+7*9 {
+				t.Errorf("row is %d wide, want %d: %q", len(line), 10+7*9, line)
+			}
+		}
+	})
+
+	t.Run("numbers are coloured like the limits", func(t *testing.T) {
+		// 1000 g of Cheese in one day: 4000 kcal, 250 g protein, 10 g carbs,
+		// 330 g fat, 0 g fiber, 10 g sugar, 18 g salt
+		logs := []Log{{Time: reportNow, Food: "Cheese", Grams: 1000}}
+
+		var out strings.Builder
+		printWeek(&out, reportFoods, logs, reportNow)
+
+		var today string
+		for _, line := range strings.Split(out.String(), "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "Wed 14 Oct") {
+				today = line
+			}
+		}
+		for _, want := range []string{
+			Bold + Red + "     4000" + Reset,   // calories: red
+			Bold + Red + "    250.0" + Reset,   // protein: red
+			Reset + "     10.0" + Reset,        // carbs: white (below 50)
+			Bold + Red + "    330.0" + Reset,   // fat: red
+			Reset + "      0.0" + Reset,        // fiber: white (below 25)
+			Bold + Green + "     10.0" + Reset, // sugar: green (from 0)
+			Bold + Red + "     18.0" + Reset,   // salt: red
+		} {
+			if !strings.Contains(today, want) {
+				t.Errorf("today row is missing %q:\n%q", want, today)
+			}
 		}
 	})
 }
@@ -376,16 +445,15 @@ func TestPrintToday(t *testing.T) {
 		}
 	})
 
-	t.Run("salt colour follows the bands", func(t *testing.T) {
+	t.Run("salt colour follows the limits", func(t *testing.T) {
 		tests := []struct {
 			name  string
 			grams float64 // grams of Cheese, 1.8 g salt per 100 g
 			want  string
 		}{
-			{"white below 1 g", 20, Reset},          // 0.36 g
-			{"green at 1-5 g", 100, Bold + Green},   // 1.8 g
-			{"yellow over 5 g", 400, Bold + Yellow}, // 7.2 g
-			{"red over 10 g", 700, Bold + Red},      // 12.6 g
+			{"green up to 4 g", 100, Bold + Green},  // 1.8 g
+			{"yellow over 4 g", 250, Bold + Yellow}, // 4.5 g
+			{"red over 5 g", 400, Bold + Red},       // 7.2 g
 		}
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
@@ -405,6 +473,19 @@ func TestPrintToday(t *testing.T) {
 					t.Errorf("salt line = %q, want colour %q right after the label", saltLine, tc.want)
 				}
 			})
+		}
+	})
+
+	t.Run("shows the limit of each total", func(t *testing.T) {
+		logs := []Log{{Time: reportNow, Food: "Oats", Grams: 100}}
+		var out strings.Builder
+		printToday(&out, reportFoods, logs, reportNow)
+		s := out.String()
+
+		for _, want := range []string{"(3100)", "(180)", "(300)", "(90)", "(50)", "(5)"} {
+			if !strings.Contains(s, want) {
+				t.Errorf("output missing the limit %q:\n%s", want, s)
+			}
 		}
 	})
 
@@ -438,7 +519,7 @@ func TestReport(t *testing.T) {
 
 		out := captureReport(t)
 
-		for _, want := range []string{"Name", "Last 7 days", "Today,", "Peanut butter", "Calories"} {
+		for _, want := range []string{"Last 7 days", "Today,", "Peanut butter", "Calories"} {
 			if !strings.Contains(out, want) {
 				t.Errorf("output missing %q:\n%s", want, out)
 			}
@@ -447,7 +528,7 @@ func TestReport(t *testing.T) {
 
 	t.Run("works on a first run with no files", func(t *testing.T) {
 		useTempData(t)
-		os.Remove(FoodFile)
+		os.Remove(Foods)
 
 		out := captureReport(t)
 
@@ -458,7 +539,7 @@ func TestReport(t *testing.T) {
 
 	t.Run("a broken food file shows its error but not a crash", func(t *testing.T) {
 		useTempData(t)
-		os.WriteFile(FoodFile, []byte("not json"), 0o644)
+		os.WriteFile(Foods, []byte("not json"), 0o644)
 
 		out := captureReport(t)
 
@@ -509,6 +590,11 @@ func capture(t *testing.T, fn func()) string {
 	w.Close()
 	os.Stdout = old
 	return <-done
+}
+
+// stripColour removes the colour codes (ESC [ ... m) so the text can be measured.
+func stripColour(s string) string {
+	return regexp.MustCompile("\x1b\\[[0-9;]*m").ReplaceAllString(s, "")
 }
 
 // captureReport runs Report() and returns what it printed.

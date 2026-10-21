@@ -216,7 +216,7 @@ func TestLogFood(t *testing.T) {
 
 	t.Run("rejects when there are no foods at all", func(t *testing.T) {
 		path := useTempData(t)
-		os.Remove(FoodFile) // first run: no foods added yet
+		os.Remove(Foods) // first run: no foods added yet
 
 		if err := logFood("Oats", 50); err == nil {
 			t.Fatal("expected an error when there are no foods at all")
@@ -262,7 +262,7 @@ func TestLogFood(t *testing.T) {
 
 	t.Run("broken food file is an error", func(t *testing.T) {
 		path := useTempData(t)
-		os.WriteFile(FoodFile, []byte("not json"), 0o644)
+		os.WriteFile(Foods, []byte("not json"), 0o644)
 
 		if err := logFood("Oats", 50); err == nil {
 			t.Fatal("expected an error for the broken food file")
@@ -274,12 +274,12 @@ func TestLogFood(t *testing.T) {
 
 	t.Run("does not touch the food file", func(t *testing.T) {
 		useTempData(t)
-		before := readFile(t, FoodFile)
+		before := readFile(t, Foods)
 
 		if err := logFood("Oats", 50); err != nil {
 			t.Fatal(err)
 		}
-		if got := readFile(t, FoodFile); got != before {
+		if got := readFile(t, Foods); got != before {
 			t.Error("food file changed")
 		}
 	})
@@ -294,7 +294,7 @@ func TestLogFood(t *testing.T) {
 func TestLogInteractive(t *testing.T) {
 	t.Run("no foods yet is an error", func(t *testing.T) {
 		path := useTempData(t)
-		os.Remove(FoodFile)
+		os.Remove(Foods)
 
 		if err := LogInteractive(); err == nil {
 			t.Fatal("expected an error")
@@ -306,7 +306,7 @@ func TestLogInteractive(t *testing.T) {
 
 	t.Run("empty food list is an error", func(t *testing.T) {
 		path := useTempData(t)
-		writeJSON(FoodFile, []Food{})
+		writeJSON(Foods, []Food{})
 
 		if err := LogInteractive(); err == nil {
 			t.Fatal("expected an error")
@@ -318,12 +318,12 @@ func TestLogInteractive(t *testing.T) {
 
 	t.Run("broken food file is an error", func(t *testing.T) {
 		path := useTempData(t)
-		os.WriteFile(FoodFile, []byte("not json"), 0o644)
+		os.WriteFile(Foods, []byte("not json"), 0o644)
 
 		if err := LogInteractive(); err == nil {
 			t.Fatal("expected an error")
 		}
-		if got := readFile(t, FoodFile); got != "not json" {
+		if got := readFile(t, Foods); got != "not json" {
 			t.Errorf("food file was overwritten with: %s", got)
 		}
 		if exists(path) {
@@ -371,7 +371,7 @@ func TestUndoLog(t *testing.T) {
 
 	t.Run("last entry leaves an empty list", func(t *testing.T) {
 		path := useTempData(t)
-		writeJSON(LogFile, []Log{{Time: time.Now(), Food: "Oats", Grams: 50}})
+		writeJSON(Logs, []Log{{Time: time.Now(), Food: "Oats", Grams: 50}})
 
 		if err := UndoLog(); err != nil {
 			t.Fatal(err)
@@ -416,12 +416,12 @@ func TestUndoLog(t *testing.T) {
 	t.Run("does not touch the food file", func(t *testing.T) {
 		useTempData(t)
 		seedLogs(t)
-		before := readFile(t, FoodFile)
+		before := readFile(t, Foods)
 
 		if err := UndoLog(); err != nil {
 			t.Fatal(err)
 		}
-		if got := readFile(t, FoodFile); got != before {
+		if got := readFile(t, Foods); got != before {
 			t.Errorf("food file changed:\nbefore: %s\nafter: %s", before, got)
 		}
 	})
@@ -439,7 +439,7 @@ func TestUndoFood(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		foods, err := LoadFood(FoodFile)
+		foods, err := LoadFood(Foods)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -450,24 +450,24 @@ func TestUndoFood(t *testing.T) {
 
 	t.Run("nothing to undo is an error", func(t *testing.T) {
 		useTempData(t)
-		os.Remove(FoodFile)
+		os.Remove(Foods)
 
 		if err := UndoFood(); err == nil {
 			t.Fatal("expected an error")
 		}
-		if exists(FoodFile) {
+		if exists(Foods) {
 			t.Error("undo should not create a food file")
 		}
 	})
 
 	t.Run("broken file is not overwritten", func(t *testing.T) {
 		useTempData(t)
-		os.WriteFile(FoodFile, []byte("not json"), 0o644)
+		os.WriteFile(Foods, []byte("not json"), 0o644)
 
 		if err := UndoFood(); err == nil {
 			t.Fatal("expected an error")
 		}
-		if got := readFile(t, FoodFile); got != "not json" {
+		if got := readFile(t, Foods); got != "not json" {
 			t.Errorf("broken file was overwritten with: %s", got)
 		}
 	})
@@ -475,17 +475,17 @@ func TestUndoFood(t *testing.T) {
 	t.Run("does not touch the log file", func(t *testing.T) {
 		useTempData(t)
 		seedLogs(t)
-		before := readFile(t, LogFile)
+		before := readFile(t, Logs)
 
 		if err := UndoFood(); err != nil {
 			t.Fatal(err)
 		}
-		if got := readFile(t, LogFile); got != before {
+		if got := readFile(t, Logs); got != before {
 			t.Errorf("log file changed:\nbefore: %s\nafter: %s", before, got)
 		}
 
 		// and the food file really did change, so this is not passing by accident
-		foods, _ := LoadFood(FoodFile)
+		foods, _ := LoadFood(Foods)
 		if len(foods) != 2 {
 			t.Errorf("want 2 foods left, got %d", len(foods))
 		}
@@ -502,27 +502,27 @@ func TestUndoFood(t *testing.T) {
 func useTempData(t *testing.T) string {
 	t.Helper()
 
-	oldFood, oldFoodBackup := FoodFile, FoodFileBackup
-	oldLog, oldLogBackup := LogFile, LogFileBackup
+	oldFood, oldFoodBackup := Foods, FoodsBackup
+	oldLog, oldLogBackup := Logs, LogsBackup
 	t.Cleanup(func() {
-		FoodFile, FoodFileBackup = oldFood, oldFoodBackup
-		LogFile, LogFileBackup = oldLog, oldLogBackup
+		Foods, FoodsBackup = oldFood, oldFoodBackup
+		Logs, LogsBackup = oldLog, oldLogBackup
 	})
 
 	dir := t.TempDir()
-	FoodFile = filepath.Join(dir, "local", "food.json")
-	FoodFileBackup = filepath.Join(dir, "usb", "food.json")
-	LogFile = filepath.Join(dir, "local", "log.json")
-	LogFileBackup = filepath.Join(dir, "usb", "log.json")
+	Foods = filepath.Join(dir, "local", "food.json")
+	FoodsBackup = filepath.Join(dir, "usb", "food.json")
+	Logs = filepath.Join(dir, "local", "log.json")
+	LogsBackup = filepath.Join(dir, "usb", "log.json")
 	fakeDrive(t, false, nil, false)
 	quiet(t)
 
 	foods := []Food{{Name: "Oats", Kcal: 370}, {Name: "Cheese", Kcal: 400}, {Name: "Peanut butter", Kcal: 600}}
-	if err := writeJSON(FoodFile, foods); err != nil {
+	if err := writeJSON(Foods, foods); err != nil {
 		t.Fatal(err)
 	}
 
-	return LogFile
+	return Logs
 }
 
 // withArgs sets os.Args like running: go run . <args...>
@@ -544,7 +544,7 @@ func seedLogs(t *testing.T) {
 		{Time: now, Food: "Cheese", Grams: 30},
 		{Time: now, Food: "Peanut butter", Grams: 20},
 	}
-	if err := writeJSON(LogFile, logs); err != nil {
+	if err := writeJSON(Logs, logs); err != nil {
 		t.Fatal(err)
 	}
 }

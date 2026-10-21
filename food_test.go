@@ -86,7 +86,7 @@ func TestSaveFood(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		out, err := LoadFood(FoodFile)
+		out, err := LoadFood(Foods)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -398,14 +398,14 @@ func TestCheckName(t *testing.T) {
 func TestAddFood(t *testing.T) {
 	t.Run("first run creates the food file", func(t *testing.T) {
 		useTempData(t)
-		os.Remove(FoodFile) // no foods added yet
+		os.Remove(Foods) // no foods added yet
 		withStdin(t, "Oats\n370\n13\n60\n7\n10\n1\n0.02\n")
 
 		if err := AddFood(); err != nil {
 			t.Fatal(err)
 		}
 
-		foods, err := LoadFood(FoodFile)
+		foods, err := LoadFood(Foods)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -422,7 +422,7 @@ func TestAddFood(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		foods, err := LoadFood(FoodFile)
+		foods, err := LoadFood(Foods)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -434,13 +434,13 @@ func TestAddFood(t *testing.T) {
 	t.Run("existing name is refused, any case", func(t *testing.T) {
 		for _, name := range []string{"Oats", "oats"} {
 			useTempData(t)
-			before := readFile(t, FoodFile)
+			before := readFile(t, Foods)
 			withStdin(t, name+"\n370\n13\n60\n7\n10\n1\n0.02\n")
 
 			if err := AddFood(); err == nil {
 				t.Errorf("%q should be refused", name)
 			}
-			if got := readFile(t, FoodFile); got != before {
+			if got := readFile(t, Foods); got != before {
 				t.Errorf("food file changed after refused name %q", name)
 			}
 		}
@@ -448,26 +448,26 @@ func TestAddFood(t *testing.T) {
 
 	t.Run("empty name is refused", func(t *testing.T) {
 		useTempData(t)
-		before := readFile(t, FoodFile)
+		before := readFile(t, Foods)
 		withStdin(t, "\n370\n13\n60\n7\n10\n1\n0.02\n")
 
 		if err := AddFood(); err == nil {
 			t.Error("expected an error for an empty name")
 		}
-		if got := readFile(t, FoodFile); got != before {
+		if got := readFile(t, Foods); got != before {
 			t.Error("food file changed after refused name")
 		}
 	})
 
 	t.Run("broken food file is not overwritten", func(t *testing.T) {
 		useTempData(t)
-		os.WriteFile(FoodFile, []byte("not json"), 0o644)
+		os.WriteFile(Foods, []byte("not json"), 0o644)
 		withStdin(t, "Oats\n370\n13\n60\n7\n10\n1\n0.02\n")
 
 		if err := AddFood(); err == nil {
 			t.Fatal("expected an error for the broken file")
 		}
-		if got := readFile(t, FoodFile); got != "not json" {
+		if got := readFile(t, Foods); got != "not json" {
 			t.Errorf("broken file was overwritten with: %s", got)
 		}
 	})
@@ -484,17 +484,17 @@ func TestUpdateFood(t *testing.T) {
 	t.Run("Enter everywhere changes nothing", func(t *testing.T) {
 		useTempData(t)
 		seedLogs(t)
-		foodsBefore, logsBefore := readFile(t, FoodFile), readFile(t, LogFile)
+		foodsBefore, logsBefore := readFile(t, Foods), readFile(t, Logs)
 		withArgs(t, "update-food", "Cheese")
 		withStdin(t, allEnter)
 
 		if err := UpdateFood(); err != nil {
 			t.Fatal(err)
 		}
-		if got := readFile(t, FoodFile); got != foodsBefore {
+		if got := readFile(t, Foods); got != foodsBefore {
 			t.Errorf("food file changed:\n%s", got)
 		}
-		if got := readFile(t, LogFile); got != logsBefore {
+		if got := readFile(t, Logs); got != logsBefore {
 			t.Errorf("log file changed:\n%s", got)
 		}
 	})
@@ -508,7 +508,7 @@ func TestUpdateFood(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		foods, _ := LoadFood(FoodFile)
+		foods, _ := LoadFood(Foods)
 		if len(foods) != 3 {
 			t.Fatalf("got %d foods, want 3", len(foods))
 		}
@@ -528,7 +528,7 @@ func TestUpdateFood(t *testing.T) {
 		if err := UpdateFood(); err != nil {
 			t.Fatal(err)
 		}
-		foods, _ := LoadFood(FoodFile)
+		foods, _ := LoadFood(Foods)
 		if foods[1].Kcal != 450 {
 			t.Errorf("Cheese not updated: %+v", foods[1])
 		}
@@ -544,12 +544,12 @@ func TestUpdateFood(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		foods, _ := LoadFood(FoodFile)
+		foods, _ := LoadFood(Foods)
 		if foods[0].Name != "Rolled oats" || foods[0].Kcal != 370 {
 			t.Errorf("food not renamed or values lost: %+v", foods[0])
 		}
 
-		logs, _ := LoadLog(LogFile)
+		logs, _ := LoadLog(Logs)
 		if logs[0].Food != "Rolled oats" || logs[0].Grams != 50 {
 			t.Errorf("log entry not renamed: %+v", logs[0])
 		}
@@ -566,7 +566,7 @@ func TestUpdateFood(t *testing.T) {
 		if err := UpdateFood(); err != nil {
 			t.Fatal(err)
 		}
-		foods, _ := LoadFood(FoodFile)
+		foods, _ := LoadFood(Foods)
 		if foods[0].Name != "OATS" {
 			t.Errorf("Name = %q, want OATS", foods[0].Name)
 		}
@@ -575,17 +575,17 @@ func TestUpdateFood(t *testing.T) {
 	t.Run("name of another food is refused and nothing changes", func(t *testing.T) {
 		useTempData(t)
 		seedLogs(t)
-		foodsBefore, logsBefore := readFile(t, FoodFile), readFile(t, LogFile)
+		foodsBefore, logsBefore := readFile(t, Foods), readFile(t, Logs)
 		withArgs(t, "update-food", "Oats")
 		withStdin(t, "cheese\n999\n\n\n\n\n\n\n")
 
 		if err := UpdateFood(); err == nil {
 			t.Fatal("expected an error")
 		}
-		if got := readFile(t, FoodFile); got != foodsBefore {
+		if got := readFile(t, Foods); got != foodsBefore {
 			t.Error("food file changed")
 		}
-		if got := readFile(t, LogFile); got != logsBefore {
+		if got := readFile(t, Logs); got != logsBefore {
 			t.Error("log file changed")
 		}
 	})
@@ -610,31 +610,31 @@ func TestUpdateFood(t *testing.T) {
 
 	t.Run("broken food file is not overwritten", func(t *testing.T) {
 		useTempData(t)
-		os.WriteFile(FoodFile, []byte("not json"), 0o644)
+		os.WriteFile(Foods, []byte("not json"), 0o644)
 		withArgs(t, "update-food", "Oats")
 
 		if err := UpdateFood(); err == nil {
 			t.Fatal("expected an error")
 		}
-		if got := readFile(t, FoodFile); got != "not json" {
+		if got := readFile(t, Foods); got != "not json" {
 			t.Errorf("broken file was overwritten with: %s", got)
 		}
 	})
 
 	t.Run("broken log file stops the update before any change", func(t *testing.T) {
 		useTempData(t)
-		foodsBefore := readFile(t, FoodFile)
-		os.WriteFile(LogFile, []byte("not json"), 0o644)
+		foodsBefore := readFile(t, Foods)
+		os.WriteFile(Logs, []byte("not json"), 0o644)
 		withArgs(t, "update-food", "Oats")
 		withStdin(t, "Rolled oats\n\n\n\n\n\n\n\n")
 
 		if err := UpdateFood(); err == nil {
 			t.Fatal("expected an error")
 		}
-		if got := readFile(t, FoodFile); got != foodsBefore {
+		if got := readFile(t, Foods); got != foodsBefore {
 			t.Error("food file changed even though the log could not be loaded")
 		}
-		if got := readFile(t, LogFile); got != "not json" {
+		if got := readFile(t, Logs); got != "not json" {
 			t.Errorf("broken log was overwritten with: %s", got)
 		}
 	})
@@ -661,7 +661,7 @@ func TestDeleteFood(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		foods, _ := LoadFood(FoodFile)
+		foods, _ := LoadFood(Foods)
 		if got := strings.Join(names(foods), ","); got != "Oats,Peanut butter" {
 			t.Errorf("got %s, want Oats,Peanut butter", got)
 		}
@@ -675,7 +675,7 @@ func TestDeleteFood(t *testing.T) {
 			if err := DeleteFood(); err != nil {
 				t.Fatal(err)
 			}
-			foods, _ := LoadFood(FoodFile)
+			foods, _ := LoadFood(Foods)
 			if got := strings.Join(names(foods), ","); got != want {
 				t.Errorf("after deleting %s: got %s, want %s", arg, got, want)
 			}
@@ -689,7 +689,7 @@ func TestDeleteFood(t *testing.T) {
 		if err := DeleteFood(); err != nil {
 			t.Fatal(err)
 		}
-		foods, _ := LoadFood(FoodFile)
+		foods, _ := LoadFood(Foods)
 		if len(foods) != 2 {
 			t.Errorf("got %d foods, want 2", len(foods))
 		}
@@ -697,13 +697,13 @@ func TestDeleteFood(t *testing.T) {
 
 	t.Run("deleting the only food leaves an empty list", func(t *testing.T) {
 		useTempData(t)
-		writeJSON(FoodFile, []Food{{Name: "Oats"}})
+		writeJSON(Foods, []Food{{Name: "Oats"}})
 		withArgs(t, "delete-food", "Oats")
 
 		if err := DeleteFood(); err != nil {
 			t.Fatal(err)
 		}
-		foods, err := LoadFood(FoodFile)
+		foods, err := LoadFood(Foods)
 		if err != nil || len(foods) != 0 {
 			t.Errorf("foods = %+v, err = %v, want an empty list", foods, err)
 		}
@@ -712,29 +712,29 @@ func TestDeleteFood(t *testing.T) {
 	t.Run("food used in the log is refused and nothing changes", func(t *testing.T) {
 		useTempData(t)
 		seedLogs(t) // Oats, Cheese, Peanut butter are all logged
-		foodsBefore, logsBefore := readFile(t, FoodFile), readFile(t, LogFile)
+		foodsBefore, logsBefore := readFile(t, Foods), readFile(t, Logs)
 		withArgs(t, "delete-food", "oats") // different case, still the same food
 
 		if err := DeleteFood(); err == nil {
 			t.Fatal("expected an error")
 		}
-		if got := readFile(t, FoodFile); got != foodsBefore {
+		if got := readFile(t, Foods); got != foodsBefore {
 			t.Error("food file changed")
 		}
-		if got := readFile(t, LogFile); got != logsBefore {
+		if got := readFile(t, Logs); got != logsBefore {
 			t.Error("log file changed")
 		}
 	})
 
 	t.Run("food that is not in the log can be deleted", func(t *testing.T) {
 		useTempData(t)
-		writeJSON(LogFile, []Log{{Food: "Oats", Grams: 50}}) // only Oats is logged
+		writeJSON(Logs, []Log{{Food: "Oats", Grams: 50}}) // only Oats is logged
 		withArgs(t, "delete-food", "Cheese")
 
 		if err := DeleteFood(); err != nil {
 			t.Fatal(err)
 		}
-		foods, _ := LoadFood(FoodFile)
+		foods, _ := LoadFood(Foods)
 		if len(foods) != 2 {
 			t.Errorf("got %d foods, want 2", len(foods))
 		}
@@ -742,13 +742,13 @@ func TestDeleteFood(t *testing.T) {
 
 	t.Run("unknown food is an error", func(t *testing.T) {
 		useTempData(t)
-		before := readFile(t, FoodFile)
+		before := readFile(t, Foods)
 		withArgs(t, "delete-food", "Rice")
 
 		if err := DeleteFood(); err == nil {
 			t.Error("expected an error")
 		}
-		if got := readFile(t, FoodFile); got != before {
+		if got := readFile(t, Foods); got != before {
 			t.Error("food file changed")
 		}
 	})
@@ -764,14 +764,14 @@ func TestDeleteFood(t *testing.T) {
 
 	t.Run("broken log file stops the delete", func(t *testing.T) {
 		useTempData(t)
-		before := readFile(t, FoodFile)
-		os.WriteFile(LogFile, []byte("not json"), 0o644)
+		before := readFile(t, Foods)
+		os.WriteFile(Logs, []byte("not json"), 0o644)
 		withArgs(t, "delete-food", "Cheese")
 
 		if err := DeleteFood(); err == nil {
 			t.Fatal("expected an error")
 		}
-		if got := readFile(t, FoodFile); got != before {
+		if got := readFile(t, Foods); got != before {
 			t.Error("food file changed even though the log could not be loaded")
 		}
 	})

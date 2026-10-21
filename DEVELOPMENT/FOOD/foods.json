@@ -38,5 +38,15 @@
     "Fiber": 12,
     "Sugar": 12,
     "Salt": 12
+  },
+  {
+    "Name": "tuhat",
+    "Kcal": 1000,
+    "Protein": 1,
+    "Carbs": 1,
+    "Fat": 1,
+    "Fiber": 1,
+    "Sugar": 1,
+    "Salt": 1
   }
 ]

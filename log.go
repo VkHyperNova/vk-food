@@ -36,7 +36,7 @@ func AddLog() error {
 }
 
 func UndoLog() error {
-	logs, err := LoadLog(LogFile)
+	logs, err := LoadLog(Logs)
 	if err != nil {
 		return fmt.Errorf("load log: %w", err)
 	}
@@ -48,7 +48,7 @@ func UndoLog() error {
 }
 
 func LogInteractive() error {
-	foods, err := LoadFood(FoodFile)
+	foods, err := LoadFood(Foods)
 	if err != nil {
 		return fmt.Errorf("load food: %w", err)
 	}
@@ -56,16 +56,17 @@ func LogInteractive() error {
 		return errors.New("no foods yet, add one first with: go run . add-food")
 	}
 
-	names := make([]string, len(foods))
+	options := make([]huh.Option[string], len(foods))
 	for i, f := range foods {
-		names[i] = f.Name
+		label := fmt.Sprintf("%s (%v kcal)", f.Name, f.Kcal)
+		options[i] = huh.NewOption(label, f.Name)
 	}
 
 	var name, gramsText string
 	form := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().
 			Title("Food").
-			Options(huh.NewOptions(names...)...).
+			Options(options...).
 			Filtering(true). // typing narrows the list
 			Value(&name),
 		huh.NewInput().
@@ -91,7 +92,7 @@ func logFood(name string, grams float64) error {
 	if grams <= 0 || math.IsNaN(grams) || math.IsInf(grams, 0) {
 		return errors.New("grams must be a valid number greater than zero")
 	}
-	foods, err := LoadFood(FoodFile)
+	foods, err := LoadFood(Foods)
 	if err != nil {
 		return fmt.Errorf("load food: %w", err)
 	}
@@ -99,7 +100,7 @@ func logFood(name string, grams float64) error {
 	if !ok {
 		return fmt.Errorf("%q is not in the food list, add it first with: go run . add-food", name)
 	}
-	logs, err := LoadLog(LogFile)
+	logs, err := LoadLog(Logs)
 	if err != nil {
 		return fmt.Errorf("load log: %w", err)
 	}
@@ -128,5 +129,5 @@ func LoadLog(source string) ([]Log, error) {
 }
 
 func SaveLog(logs []Log) error {
-	return Save(LogFile, LogFileBackup, logs)
+	return Save(Logs, LogsBackup, logs)
 }
