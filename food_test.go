@@ -20,6 +20,7 @@ import (
 //   TestAddFood       - the "add-food" command
 //   TestUpdateFood    - the "update-food" command
 //   TestDeleteFood    - the "delete-food" command
+//   TestPrintFoods    - the "print-foods" command and its table
 //
 // UndoFood is tested in log_test.go. This file also uses the helpers
 // useTempData, withArgs, seedLogs, exists, readFile and quiet from log_test.go,
@@ -773,6 +774,168 @@ func TestDeleteFood(t *testing.T) {
 		}
 		if got := readFile(t, Foods); got != before {
 			t.Error("food file changed even though the log could not be loaded")
+		}
+	})
+}
+
+// ============================================================
+// PrintFoods
+// ============================================================
+
+func TestPrintFoods(t *testing.T) {
+	foods := []Food{
+		{Name: "Oats", Kcal: 370, Protein: 13, Carbs: 60, Fat: 7, Fiber: 10, Sugar: 1, Salt: 0.02},
+		{Name: "Peanut butter", Kcal: 600, Protein: 25, Carbs: 20, Fat: 50, Fiber: 6, Sugar: 9, Salt: 0.01},
+	}
+
+	// lines saves the foods to the food file, runs the command and returns the
+	// lines it wants to show, without the colour codes.
+	lines := func(t *testing.T, foods []Food) []string {
+		t.Helper()
+
+		useTempData(t)
+		if err := writeJSON(Foods, foods); err != nil {
+			t.Fatal(err)
+		}
+		notices = nil
+
+		if err := PrintFoods(); err != nil {
+			t.Fatal(err)
+		}
+		return strings.Split(strings.TrimSpace(stripColour(strings.Join(notices, "\n"))), "\n")
+	}
+
+	t.Run("heading, header and a row for each food", func(t *testing.T) {
+		got := lines(t, foods)
+		if len(got) != 4 {
+			t.Fatalf("got %d lines, want 4:\n%s", len(got), strings.Join(got, "\n"))
+		}
+		if got[0] != "Foods (per 100 g)" {
+			t.Errorf("heading = %q", got[0])
+		}
+		if !strings.Contains(got[1], "Name") || !strings.Contains(got[1], "Salt") {
+			t.Errorf("header = %q", got[1])
+		}
+	})
+
+	t.Run("shows all the values of each food", func(t *testing.T) {
+		got := lines(t, foods)
+
+		want := "Oats 370 13.0 60.0 7.0 10.0 1.0 0.02"
+		if strings.Join(strings.Fields(got[2]), " ") != want {
+			t.Errorf("Oats row = %q, want %q", strings.Fields(got[2]), want)
+		}
+		want = "Peanut butter 600 25.0 20.0 50.0 6.0 9.0 0.01"
+		if strings.Join(strings.Fields(got[3]), " ") != want {
+			t.Errorf("Peanut butter row = %q, want %q", strings.Fields(got[3]), want)
+		}
+	})
+
+	t.Run("keeps the order of the file", func(t *testing.T) {
+		got := lines(t, foods)
+		if !strings.HasPrefix(got[2], "Oats") || !strings.HasPrefix(got[3], "Peanut butter") {
+			t.Errorf("rows are in the wrong order:\n%s", strings.Join(got, "\n"))
+		}
+	})
+
+	t.Run("columns line up", func(t *testing.T) {
+		got := lines(t, foods)
+		// the name column is as wide as the longest name, then 7 columns of 8
+		want := len("Peanut butter") + 7*8
+		for _, line := range got[1:] {
+			if len(line) != want {
+				t.Errorf("row is %d wide, want %d: %q", len(line), want, line)
+			}
+		}
+	})
+
+	t.Run("a short name list still has room for the header", func(t *testing.T) {
+		got := lines(t, []Food{{Name: "Egg", Kcal: 140}})
+		if len(got[1]) != len("Name")+7*8 || len(got[2]) != len(got[1]) {
+			t.Errorf("rows are not the same width:\n%s", strings.Join(got, "\n"))
+		}
+	})
+
+	t.Run("names with special letters still line up", func(t *testing.T) {
+		got := lines(t, []Food{{Name: "Võileib", Kcal: 250}, {Name: "Oats", Kcal: 370}})
+
+		// 7 letters (õ counts as one) plus 7 columns of 8
+		want := len([]rune("Võileib")) + 7*8
+		for _, line := range got[1:] {
+			if n := len([]rune(line)); n != want {
+				t.Errorf("row is %d characters wide, want %d: %q", n, want, line)
+			}
+		}
+	})
+
+	t.Run("an empty food list says how to add one", func(t *testing.T) {
+		got := lines(t, nil)
+
+		if len(got) != 1 || !strings.Contains(got[0], "add-food") {
+			t.Errorf("lines: %q", got)
+		}
+	})
+
+	t.Run("the command shows the foods from the file as a notice", func(t *testing.T) {
+		useTempData(t) // Oats, Cheese, Peanut butter
+		notices = nil
+
+		if err := PrintFoods(); err != nil {
+			t.Fatal(err)
+		}
+
+		out := strings.Join(notices, "\n")
+		for _, want := range []string{"Oats", "Cheese", "Peanut butter"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("notices missing %q:\n%s", want, out)
+			}
+		}
+	})
+
+	t.Run("the command prints nothing itself", func(t *testing.T) {
+		// Report() clears the screen after the command, so it must not print;
+		// main shows the notices after the report.
+		useTempData(t)
+		notices = nil
+
+		if out := capture(t, func() { PrintFoods() }); out != "" {
+			t.Errorf("printed %q, want nothing", out)
+		}
+	})
+
+	t.Run("the command with no food file is not an error", func(t *testing.T) {
+		useTempData(t)
+		os.Remove(Foods)
+		notices = nil
+
+		if err := PrintFoods(); err != nil {
+			t.Fatal(err)
+		}
+		if out := strings.Join(notices, "\n"); !strings.Contains(out, "add-food") {
+			t.Errorf("notices: %q", out)
+		}
+	})
+
+	t.Run("the command with a broken food file is an error", func(t *testing.T) {
+		useTempData(t)
+		os.WriteFile(Foods, []byte("not json"), 0o644)
+		notices = nil
+
+		if err := PrintFoods(); err == nil {
+			t.Error("expected an error")
+		}
+		if len(notices) != 0 {
+			t.Errorf("nothing should be shown, got %q", notices)
+		}
+	})
+
+	t.Run("the command does not change the file", func(t *testing.T) {
+		useTempData(t)
+		before := readFile(t, Foods)
+
+		PrintFoods()
+		if got := readFile(t, Foods); got != before {
+			t.Error("the food file changed")
 		}
 	})
 }

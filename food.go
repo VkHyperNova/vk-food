@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // Food holds nutrition values per 100 g.
@@ -132,6 +133,42 @@ func UpdateFood() error {
 
 	// write log.json (and the backup)
 	return SaveLog(logs)
+}
+
+func PrintFoods() error {
+
+	foods, err := LoadFood(Foods)
+	if err != nil {
+		return fmt.Errorf("load food: %w", err)
+	}
+
+	var out strings.Builder // main prints it after the report, see notice
+
+	if len(foods) == 0 {
+		fmt.Fprintln(&out, "No foods yet. Add one with: go run . add-food")
+		notice(strings.TrimRight(out.String(), "\n"))
+		return nil
+	}
+
+	const numW = 8 // width of each number column
+
+	nameW := len("Name") // the longest name, so the numbers line up
+	for _, f := range foods {
+		if n := utf8.RuneCountInString(f.Name); n > nameW {
+			nameW = n
+		}
+	}
+
+	fmt.Fprintln(&out, Bold+"Foods (per 100 g)"+Reset)
+	fmt.Fprintf(&out, "%-*s%*s%*s%*s%*s%*s%*s%*s\n", nameW, "Name",
+		numW, "kcal", numW, "Protein", numW, "Carbs", numW, "Fat", numW, "Fiber", numW, "Sugar", numW, "Salt")
+	for _, f := range foods {
+		fmt.Fprintf(&out, "%-*s%*.0f%*.1f%*.1f%*.1f%*.1f%*.1f%*.2f\n", nameW, f.Name,
+			numW, f.Kcal, numW, f.Protein, numW, f.Carbs, numW, f.Fat, numW, f.Fiber, numW, f.Sugar, numW, f.Salt)
+	}
+
+	notice(strings.TrimRight(out.String(), "\n"))
+	return nil
 }
 
 /* Storage */

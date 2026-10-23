@@ -34,22 +34,30 @@ func Report() {
 	printToday(os.Stdout, foods, logs, today)
 }
 
+const (
+	dateW = 6 // width of the date column
+	colW  = 8 // width of each number column
+)
+
 func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
 	fmt.Fprintln(out, Bold+"Last 7 days"+Reset)
 
-	fmt.Fprintf(out, "%10s%9s%9s%9s%9s%9s%9s%9s\n", "Date", "kcal", "Protein", "Carbs", "Fat", "Fiber", "Sugar", "Salt")
+	fmt.Fprintf(out, "%-*s%*s%*s%*s%*s%*s%*s%*s\n", dateW, "Date",
+		colW, "kcal", colW, "Protein", colW, "Carbs", colW, "Fat", colW, "Fiber", colW, "Sugar", colW, "Salt")
+	var all []Log // every entry of the rows below, for the total
 	for i := 7; i >= 0; i-- {
 		day := today.AddDate(0, 0, -i)
-		date := day.Format("Mon 02 Jan")
+		date := day.Format("Mon 02")
 
 		list := logsOn(entries, day)
+		all = append(all, list...)
 		if len(list) == 0 {
-			fmt.Fprintf(out, "%10s%s\n", date, strings.Repeat(fmt.Sprintf("%9s", "-"), 7))
+			fmt.Fprintf(out, "%-*s%s\n", dateW, date, strings.Repeat(fmt.Sprintf("%*s", colW, "-"), 7))
 			continue
 		}
 		t := sumEntries(foods, list)
 		c := levelsOf(t)
-		fmt.Fprintf(out, "%10s%s%s%s%s%s%s%s\n", date,
+		fmt.Fprintf(out, "%-*s%s%s%s%s%s%s%s\n", dateW, date,
 			cell(c.Kcal, fmt.Sprintf("%.0f", t.Kcal)),
 			cell(c.Protein, fmt.Sprintf("%.1f", t.Protein)),
 			cell(c.Carbs, fmt.Sprintf("%.1f", t.Carbs)),
@@ -58,6 +66,12 @@ func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
 			cell(c.Sugar, fmt.Sprintf("%.1f", t.Sugar)),
 			cell(c.Salt, fmt.Sprintf("%.1f", t.Salt)))
 	}
+
+	total := sumEntries(foods, all)
+	fmt.Fprintln(out, strings.Repeat("-", dateW+7*colW))
+	fmt.Fprintf(out, "%s%-*s%*.0f%*.1f%*.1f%*.1f%*.1f%*.1f%*.1f%s\n", Bold, dateW, "Total",
+		colW, total.Kcal, colW, total.Protein, colW, total.Carbs, colW, total.Fat,
+		colW, total.Fiber, colW, total.Sugar, colW, total.Salt, Reset)
 }
 
 func printToday(out io.Writer, foods []Food, entries []Log, today time.Time) {
@@ -134,7 +148,7 @@ func sumEntries(foods []Food, entries []Log) Totals {
 }
 
 func cell(color, text string) string {
-	return color + fmt.Sprintf("%9s", text) + Reset
+	return color + fmt.Sprintf("%*s", colW, text) + Reset
 }
 
 type Levels struct{ Kcal, Protein, Carbs, Fat, Fiber, Sugar, Salt string }

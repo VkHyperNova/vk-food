@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"regexp"
@@ -236,17 +237,20 @@ func TestLevelsOf(t *testing.T) {
 // ============================================================
 
 func TestCell(t *testing.T) {
-	t.Run("pads to 9 characters before the colour", func(t *testing.T) {
-		want := Bold + Green + "       12" + Reset
+	t.Run("pads to the column width before the colour", func(t *testing.T) {
+		want := Bold + Green + pad("12") + Reset
 		if got := cell(Bold+Green, "12"); got != want {
 			t.Errorf("got %q, want %q", got, want)
 		}
+		if !strings.HasPrefix(stripColour(cell(Bold+Green, "12")), " ") {
+			t.Error("the number should be right-aligned, with the spaces in front")
+		}
 	})
 
-	t.Run("visible width is 9 without the colour codes", func(t *testing.T) {
+	t.Run("visible width is the column width without the colour codes", func(t *testing.T) {
 		for _, text := range []string{"-", "0", "1234", "203.0"} {
-			if got := stripColour(cell(Bold+Red, text)); len(got) != 9 {
-				t.Errorf("cell(%q) is %d wide, want 9: %q", text, len(got), got)
+			if got := stripColour(cell(Bold+Red, text)); len(got) != colW {
+				t.Errorf("cell(%q) is %d wide, want %d: %q", text, len(got), colW, got)
 			}
 		}
 	})
@@ -326,22 +330,38 @@ func TestPrintWeek(t *testing.T) {
 	printWeek(&out, reportFoods, logs, reportNow)
 	s := out.String()
 
-	t.Run("heading, header and 8 day rows", func(t *testing.T) {
+	t.Run("heading, header, 8 day rows, a line and the total", func(t *testing.T) {
 		// 7 days back and today
-		if lines := strings.Split(strings.TrimSpace(s), "\n"); len(lines) != 10 {
-			t.Errorf("got %d lines, want 10:\n%s", len(lines), s)
+		if lines := strings.Split(strings.TrimSpace(s), "\n"); len(lines) != 12 {
+			t.Errorf("got %d lines, want 12:\n%s", len(lines), s)
 		}
 	})
 
 	t.Run("a logged day shows its totals", func(t *testing.T) {
-		if !strings.Contains(s, "Mon 12 Oct") || !strings.Contains(s, "370") {
+		if plain := stripColour(s); !strings.Contains(plain, "Mon 12 ") || !strings.Contains(plain, "370") {
 			t.Errorf("logged day missing or wrong:\n%s", s)
 		}
 	})
 
-	t.Run("today is the last row", func(t *testing.T) {
-		if !strings.Contains(s, "Wed 14 Oct") {
-			t.Errorf("today row missing:\n%s", s)
+	t.Run("dates are short: weekday and day", func(t *testing.T) {
+		if !strings.Contains(s, "Wed 07") || strings.Contains(s, "Oct") {
+			t.Errorf("want dates like 'Wed 07' without the month:\n%s", s)
+		}
+	})
+
+	t.Run("today is the last day row", func(t *testing.T) {
+		// below it come the dashed line and the total
+		lines := strings.Split(strings.TrimSpace(stripColour(s)), "\n")
+		if row := lines[len(lines)-3]; !strings.HasPrefix(row, "Wed 14") {
+			t.Errorf("last day row = %q, want today (Wed 14):\n%s", row, s)
+		}
+	})
+
+	t.Run("the table starts at the left edge", func(t *testing.T) {
+		for _, line := range strings.Split(strings.TrimSpace(stripColour(s)), "\n") {
+			if strings.HasPrefix(line, " ") {
+				t.Errorf("line starts with a space: %q", line)
+			}
 		}
 	})
 
@@ -353,17 +373,18 @@ func TestPrintWeek(t *testing.T) {
 
 	t.Run("days without entries have no colour", func(t *testing.T) {
 		for _, line := range strings.Split(s, "\n") {
-			if strings.HasPrefix(strings.TrimSpace(line), "Wed 07 Oct") && strings.Contains(line, "\033[") {
+			if strings.HasPrefix(strings.TrimSpace(line), "Wed 07") && strings.Contains(line, "\033[") {
 				t.Errorf("an empty day should not be coloured: %q", line)
 			}
 		}
 	})
 
 	t.Run("columns line up when the colours are removed", func(t *testing.T) {
-		// 10 for the date + 7 columns of 9
+		// the date column plus 7 number columns
+		want := dateW + 7*colW
 		for _, line := range strings.Split(strings.TrimSpace(stripColour(s)), "\n")[1:] {
-			if len(line) != 10+7*9 {
-				t.Errorf("row is %d wide, want %d: %q", len(line), 10+7*9, line)
+			if len(line) != want {
+				t.Errorf("row is %d wide, want %d: %q", len(line), want, line)
 			}
 		}
 	})
@@ -378,22 +399,80 @@ func TestPrintWeek(t *testing.T) {
 
 		var today string
 		for _, line := range strings.Split(out.String(), "\n") {
-			if strings.HasPrefix(strings.TrimSpace(line), "Wed 14 Oct") {
+			if strings.HasPrefix(strings.TrimSpace(line), "Wed 14") {
 				today = line
 			}
 		}
 		for _, want := range []string{
-			Bold + Red + "     4000" + Reset,   // calories: red
-			Bold + Red + "    250.0" + Reset,   // protein: red
-			Reset + "     10.0" + Reset,        // carbs: white (below 50)
-			Bold + Red + "    330.0" + Reset,   // fat: red
-			Reset + "      0.0" + Reset,        // fiber: white (below 25)
-			Bold + Green + "     10.0" + Reset, // sugar: green (from 0)
-			Bold + Red + "     18.0" + Reset,   // salt: red
+			Bold + Red + pad("4000") + Reset,   // calories: red
+			Bold + Red + pad("250.0") + Reset,  // protein: red
+			Reset + pad("10.0") + Reset,        // carbs: white (below 50)
+			Bold + Red + pad("330.0") + Reset,  // fat: red
+			Reset + pad("0.0") + Reset,         // fiber: white (below 25)
+			Bold + Green + pad("10.0") + Reset, // sugar: green (from 0)
+			Bold + Red + pad("18.0") + Reset,   // salt: red
 		} {
 			if !strings.Contains(today, want) {
 				t.Errorf("today row is missing %q:\n%q", want, today)
 			}
+		}
+	})
+
+	// The total row is the last line. Its numbers are the columns added up.
+	totalFields := func(t *testing.T, logs []Log) []string {
+		t.Helper()
+
+		var out strings.Builder
+		printWeek(&out, reportFoods, logs, reportNow)
+		lines := strings.Split(strings.TrimSpace(stripColour(out.String())), "\n")
+		return strings.Fields(lines[len(lines)-1])
+	}
+
+	t.Run("total adds up all the days", func(t *testing.T) {
+		logs := []Log{
+			{Time: reportNow.AddDate(0, 0, -2), Food: "Oats", Grams: 100},
+			{Time: reportNow, Food: "Cheese", Grams: 100},
+		}
+
+		// Oats + Cheese: kcal, protein, carbs, fat, fiber, sugar, salt
+		want := []string{"Total", "770", "38.0", "61.0", "40.0", "10.0", "2.0", "1.8"}
+		if got := totalFields(t, logs); strings.Join(got, " ") != strings.Join(want, " ") {
+			t.Errorf("total = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("total counts every row shown: the oldest day and today", func(t *testing.T) {
+		logs := []Log{
+			{Time: reportNow.AddDate(0, 0, -8), Food: "Oats", Grams: 100}, // not shown: not counted
+			{Time: reportNow.AddDate(0, 0, -7), Food: "Oats", Grams: 100}, // the oldest row
+			{Time: reportNow, Food: "Oats", Grams: 100},                   // today
+		}
+
+		if got := totalFields(t, logs); got[1] != "740" { // 2 x 370 kcal
+			t.Errorf("total kcal = %v, want 740 (%v)", got[1], got)
+		}
+	})
+
+	t.Run("nothing logged: the total is zero", func(t *testing.T) {
+		want := []string{"Total", "0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"}
+		if got := totalFields(t, nil); strings.Join(got, " ") != strings.Join(want, " ") {
+			t.Errorf("total = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("the total is bold and has no limit colour", func(t *testing.T) {
+		logs := []Log{{Time: reportNow, Food: "Cheese", Grams: 1000}} // far over every limit
+
+		var out strings.Builder
+		printWeek(&out, reportFoods, logs, reportNow)
+		lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+		total := lines[len(lines)-1]
+
+		if !strings.HasPrefix(total, Bold) {
+			t.Errorf("the total row should be bold: %q", total)
+		}
+		if strings.Contains(total, Red) || strings.Contains(total, Yellow) || strings.Contains(total, Green) {
+			t.Errorf("the total row should not use the day limits: %q", total)
 		}
 	})
 }
@@ -590,6 +669,11 @@ func capture(t *testing.T, fn func()) string {
 	w.Close()
 	os.Stdout = old
 	return <-done
+}
+
+// pad right-aligns text in one number column, like the tables do.
+func pad(text string) string {
+	return fmt.Sprintf("%*s", colW, text)
 }
 
 // stripColour removes the colour codes (ESC [ ... m) so the text can be measured.

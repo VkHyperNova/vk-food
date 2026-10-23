@@ -52,3 +52,7 @@ func writeJSON(path string, v any) error {
 	}
 	return os.WriteFile(path, data, 0o644)
 }
+
+var notices []string
+
+func notice(msg string) { notices = append(notices, msg) }

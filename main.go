@@ -26,8 +26,8 @@ const (
 	BaseDB          = "FOOD"
 	FoodsFile       = "foods.json"
 	LogsFile        = "logs.json"
-	BaseLocal       = "DATABASES"
-	// BaseLocal = "DEVELOPMENT"
+	// BaseLocal       = "DATABASES"
+	BaseLocal = "DEVELOPMENT"
 )
 
 var Foods = filepath.Join(BaseLocal, BaseDB, FoodsFile)
@@ -50,7 +50,8 @@ Commands:
   update-food <food>          change a food (Enter keeps the old value)
   delete-food <food>          delete a food that is not in the log
   undo-food                   remove the last added food
-  help                        show this text`
+  help                        show this text
+  print-foods                 show all foods with their nutrition values`
 
 func printUsage() {
 	fmt.Println(usage)
@@ -76,12 +77,17 @@ func main() {
 			err = AddLog()
 		case "undo-log":
 			err = UndoLog()
+		case "print-foods":
+			err = PrintFoods()
 		default:
 			err = fmt.Errorf("unknown command: %s (run: go run . help)", os.Args[1])
 		}
 	}
 
 	Report()
+	for _, n := range notices {
+		fmt.Println(n)
+	}
 
 	if err != nil {
 		fmt.Printf("%serror: %v%s\n", Red, err, Reset)
