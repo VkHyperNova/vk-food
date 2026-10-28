@@ -249,8 +249,8 @@ func TestCell(t *testing.T) {
 
 	t.Run("visible width is the column width without the colour codes", func(t *testing.T) {
 		for _, text := range []string{"-", "0", "1234", "203.0"} {
-			if got := stripColour(cell(Bold+Red, text)); len(got) != colW {
-				t.Errorf("cell(%q) is %d wide, want %d: %q", text, len(got), colW, got)
+			if got := stripColour(cell(Bold+Red, text)); len(got) != 8 {
+				t.Errorf("cell(%q) is %d wide, want %d: %q", text, len(got), 8, got)
 			}
 		}
 	})
@@ -381,7 +381,7 @@ func TestPrintWeek(t *testing.T) {
 
 	t.Run("columns line up when the colours are removed", func(t *testing.T) {
 		// the date column plus 7 number columns
-		want := dateW + 7*colW
+		want := 6 + 7*8
 		for _, line := range strings.Split(strings.TrimSpace(stripColour(s)), "\n")[1:] {
 			if len(line) != want {
 				t.Errorf("row is %d wide, want %d: %q", len(line), want, line)
@@ -673,7 +673,7 @@ func capture(t *testing.T, fn func()) string {
 
 // pad right-aligns text in one number column, like the tables do.
 func pad(text string) string {
-	return fmt.Sprintf("%*s", colW, text)
+	return fmt.Sprintf("%*s", 8, text)
 }
 
 // stripColour removes the colour codes (ESC [ ... m) so the text can be measured.

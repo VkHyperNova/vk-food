@@ -298,7 +298,7 @@ func TestLogInteractive(t *testing.T) {
 		path := useTempData(t)
 		os.Remove(Foods)
 
-		if err := LogInteractive(); err == nil {
+		if err := logInteractive(); err == nil {
 			t.Fatal("expected an error")
 		}
 		if exists(path) {
@@ -310,7 +310,7 @@ func TestLogInteractive(t *testing.T) {
 		path := useTempData(t)
 		writeJSON(Foods, []Food{})
 
-		if err := LogInteractive(); err == nil {
+		if err := logInteractive(); err == nil {
 			t.Fatal("expected an error")
 		}
 		if exists(path) {
@@ -322,7 +322,7 @@ func TestLogInteractive(t *testing.T) {
 		path := useTempData(t)
 		os.WriteFile(Foods, []byte("not json"), 0o644)
 
-		if err := LogInteractive(); err == nil {
+		if err := logInteractive(); err == nil {
 			t.Fatal("expected an error")
 		}
 		if got := readFile(t, Foods); got != "not json" {

@@ -53,17 +53,13 @@ Commands:
   help                        show this text
   print-foods                 show all foods with their nutrition values`
 
-func printUsage() {
-	fmt.Println(usage)
-}
-
 func main() {
 	var err error
 
 	if len(os.Args) >= 2 {
 		switch os.Args[1] {
 		case "help", "-h", "--help":
-			printUsage()
+			fmt.Println(usage)
 			return
 		case "add-food":
 			err = AddFood()
@@ -85,6 +81,7 @@ func main() {
 	}
 
 	Report()
+
 	for _, n := range notices {
 		fmt.Println(n)
 	}

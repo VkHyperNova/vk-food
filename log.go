@@ -23,7 +23,7 @@ type Log struct {
 
 func AddLog() error {
 	if len(os.Args) < 3 {
-		return LogInteractive()
+		return logInteractive()
 	}
 	if len(os.Args) < 4 {
 		return errors.New("usage: go run . log <food-name> <grams>")
@@ -47,7 +47,33 @@ func UndoLog() error {
 	return SaveLog(logs[:len(logs)-1])
 }
 
-func LogInteractive() error {
+/* Storage */
+
+func LoadLog(source string) ([]Log, error) {
+	data, err := os.ReadFile(source)
+
+	// If file does not exist continue
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil // first run: nothing saved yet
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	var entries []Log
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
+func SaveLog(logs []Log) error {
+	return Save(Logs, LogsBackup, logs)
+}
+
+/* Helper Functions */
+
+func logInteractive() error {
 	foods, err := LoadFood(Foods)
 	if err != nil {
 		return fmt.Errorf("load food: %w", err)
@@ -106,28 +132,4 @@ func logFood(name string, grams float64) error {
 	}
 	logs = append(logs, Log{Time: time.Now(), Food: food.Name, Grams: grams})
 	return SaveLog(logs)
-}
-
-/* Storage */
-
-func LoadLog(source string) ([]Log, error) {
-	data, err := os.ReadFile(source)
-
-	// If file does not exist continue
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil // first run: nothing saved yet
-	}
-
-	if err != nil {
-		return nil, err
-	}
-	var entries []Log
-	if err := json.Unmarshal(data, &entries); err != nil {
-		return nil, err
-	}
-	return entries, nil
-}
-
-func SaveLog(logs []Log) error {
-	return Save(Logs, LogsBackup, logs)
 }
