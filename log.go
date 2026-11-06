@@ -82,32 +82,42 @@ func logInteractive() error {
 		return errors.New("no foods yet, add one first with: go run . add-food")
 	}
 
+	// Label is just the name, so typing only filters by food name
 	options := make([]huh.Option[string], len(foods))
 	for i, f := range foods {
-		label := fmt.Sprintf("%s (%v kcal)", f.Name, f.Kcal)
-		options[i] = huh.NewOption(label, f.Name)
+		options[i] = huh.NewOption(f.Name, f.Name)
 	}
 
 	var name, gramsText string
-	form := huh.NewForm(huh.NewGroup(
-		huh.NewSelect[string]().
-			Title("Food").
-			Options(options...).
-			Filtering(true). // typing narrows the list
-			Value(&name),
-		huh.NewInput().
-			Title("Grams").
-			Value(&gramsText).
-			Validate(func(s string) error {
-				g, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
-				if err != nil || g <= 0 {
-					return errors.New("enter a number greater than zero")
-				}
-				return nil
-			}),
-	))
+	form := huh.NewForm(
+		// Page 1: pick the food (type to filter)
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Food").
+				Options(options...).
+				Filtering(true). // list narrows as you type
+				Height(10).      // fixed height, scrolls instead of filling the screen
+				Value(&name),
+		),
+		// Page 2: grams, shown after the food is chosen
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Grams").
+				Value(&gramsText).
+				Validate(func(s string) error {
+					g, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+					if err != nil || g <= 0 {
+						return errors.New("enter a number greater than zero")
+					}
+					return nil
+				}),
+		),
+	)
 	if err := form.Run(); err != nil {
-		return err // pressing Esc or Ctrl-C gives huh.ErrUserAborted
+		if errors.Is(err, huh.ErrUserAborted) {
+			return nil // Esc or Ctrl-C is not an error
+		}
+		return err
 	}
 
 	grams, _ := strconv.ParseFloat(strings.TrimSpace(gramsText), 64)
