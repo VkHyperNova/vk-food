@@ -10,7 +10,9 @@ import (
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"golang.org/x/term"
 )
 
 type Log struct {
@@ -82,10 +84,21 @@ func logInteractive() error {
 		return errors.New("no foods yet, add one first with: go run . add-food")
 	}
 
+	// Terminal width, so no line is ever wider than the window
+	w, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || w <= 0 {
+		w = 80
+	}
+	maxLabel := w - 6 // room for the cursor prefix and padding
+
 	// Label is just the name, so typing only filters by food name
 	options := make([]huh.Option[string], len(foods))
 	for i, f := range foods {
-		options[i] = huh.NewOption(f.Name, f.Name)
+		label := f.Name
+		if r := []rune(label); maxLabel > 1 && len(r) > maxLabel {
+			label = string(r[:maxLabel-1]) + "…"
+		}
+		options[i] = huh.NewOption(label, f.Name) // value stays the full name
 	}
 
 	var name, gramsText string
@@ -112,7 +125,11 @@ func logInteractive() error {
 					return nil
 				}),
 		),
-	)
+	).
+		WithWidth(w).
+		WithProgramOptions(tea.WithAltScreen()). // alt screen so a stale frame can't be left behind
+		WithShowHelp(w >= 75)                    // hide the hint bar when it would wrap
+
 	if err := form.Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
 			return nil // Esc or Ctrl-C is not an error
