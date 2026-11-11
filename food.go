@@ -10,6 +10,10 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
+	"golang.org/x/term"
 )
 
 // Food holds nutrition values per 100 g.
@@ -56,16 +60,31 @@ func UndoFood() error {
 }
 
 func DeleteFood() error {
-	if len(os.Args) < 3 {
-		return errors.New("usage: go run . delete-food <food-name>")
-	}
 	foods, err := LoadFood(Foods)
 	if err != nil {
 		return fmt.Errorf("load food: %w", err)
 	}
-	i := indexOfFood(foods, os.Args[2])
+	if len(foods) == 0 {
+		return errors.New("no foods yet, nothing to delete")
+	}
+
+	// use the name from the command line if given, otherwise open the picker
+	var target string
+	if len(os.Args) >= 3 {
+		target = os.Args[2]
+	} else {
+		target, err = pickFood(foods, "Food to delete")
+		if err != nil {
+			if errors.Is(err, huh.ErrUserAborted) {
+				return nil // Esc or Ctrl-C is not an error
+			}
+			return err
+		}
+	}
+
+	i := indexOfFood(foods, target)
 	if i < 0 {
-		return fmt.Errorf("%q is not in the food list", os.Args[2])
+		return fmt.Errorf("%q is not in the food list", target)
 	}
 	logs, err := LoadLog(Logs)
 	if err != nil {
@@ -80,21 +99,33 @@ func DeleteFood() error {
 }
 
 func UpdateFood() error {
-	// os.Args is: [program, "update-food", "<food-name>"], so we need 3 items
-	if len(os.Args) < 3 {
-		return errors.New("usage: go run . update-food <food-name>")
-	}
-
 	// read food.json into a slice
 	foods, err := LoadFood(Foods)
 	if err != nil {
 		return fmt.Errorf("load food: %w", err)
 	}
+	if len(foods) == 0 {
+		return errors.New("no foods yet, add one first with: go run . add-food")
+	}
 
-	// find the position of the food the user typed (ignores upper/lower case)
-	i := indexOfFood(foods, os.Args[2])
+	// use the name from the command line if given, otherwise open the picker
+	var target string
+	if len(os.Args) >= 3 {
+		target = os.Args[2]
+	} else {
+		target, err = pickFood(foods, "Food to update")
+		if err != nil {
+			if errors.Is(err, huh.ErrUserAborted) {
+				return nil // Esc or Ctrl-C is not an error
+			}
+			return err
+		}
+	}
+
+	// find the position of the chosen food (ignores upper/lower case)
+	i := indexOfFood(foods, target)
 	if i < 0 { // -1 means not found
-		return fmt.Errorf("%q is not in the food list", os.Args[2])
+		return fmt.Errorf("%q is not in the food list", target)
 	}
 
 	// read log.json too, because a rename must also change old log entries
@@ -316,4 +347,49 @@ func askFloat(reader *bufio.Reader, prompt string) float64 {
 
 		return value
 	}
+}
+
+/* Interactive picker */
+
+func pickFood(foods []Food, title string) (string, error) {
+	w, _, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil || w <= 0 {
+		w = 80
+	}
+
+	var chosen string
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title(title).
+				Options(foodOptions(foods, w)...).
+				Filtering(true).
+				Height(10).
+				Value(&chosen),
+		),
+	).
+		WithWidth(w).
+		WithProgramOptions(tea.WithAltScreen()).
+		WithShowHelp(w >= 75)
+
+	if err := form.Run(); err != nil {
+		return "", err
+	}
+	return chosen, nil
+}
+
+func foodOptions(foods []Food, w int) []huh.Option[string] {
+	maxLabel := w - 6 // room for the cursor prefix and padding
+	options := make([]huh.Option[string], len(foods))
+	for i, f := range foods {
+		suffix := fmt.Sprintf("  %g kcal", f.Kcal)
+		name := f.Name
+		r := []rune(name)
+		maxName := maxLabel - len([]rune(suffix))
+		if maxName > 1 && len(r) > maxName {
+			name = string(r[:maxName-1]) + "…"
+		}
+		options[i] = huh.NewOption(name+suffix, f.Name) // value stays the full name
+	}
+	return options
 }

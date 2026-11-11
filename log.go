@@ -89,17 +89,8 @@ func logInteractive() error {
 	if err != nil || w <= 0 {
 		w = 80
 	}
-	maxLabel := w - 6 // room for the cursor prefix and padding
 
-	// Label is just the name, so typing only filters by food name
-	options := make([]huh.Option[string], len(foods))
-	for i, f := range foods {
-		label := f.Name
-		if r := []rune(label); maxLabel > 1 && len(r) > maxLabel {
-			label = string(r[:maxLabel-1]) + "…"
-		}
-		options[i] = huh.NewOption(label, f.Name) // value stays the full name
-	}
+	options := foodOptions(foods, w)
 
 	var name, gramsText string
 	form := huh.NewForm(
