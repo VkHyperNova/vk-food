@@ -10,9 +10,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"golang.org/x/term"
 )
 
 type Log struct {
@@ -84,26 +82,22 @@ func logInteractive() error {
 		return errors.New("no foods yet, add one first with: go run . add-food")
 	}
 
-	// Terminal width, so no line is ever wider than the window
-	w, _, err := term.GetSize(int(os.Stdout.Fd()))
-	if err != nil || w <= 0 {
-		w = 80
+	// Step 1: pick the food
+	name, err := pickFood(foods, "Food")
+	if err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return nil // Esc or Ctrl-C is not an error
+		}
+		return err
 	}
 
-	options := foodOptions(foods, w)
+	// Step 2: print the details on the normal screen so they stay visible
+	f, _ := findFood(foods, name)
+	fmt.Printf("%s%s%s\n%s\n\n", Bold, f.Name, Reset, foodDetails(foods, name))
 
-	var name, gramsText string
-	form := huh.NewForm(
-		// Page 1: pick the food (type to filter)
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Food").
-				Options(options...).
-				Filtering(true). // list narrows as you type
-				Height(10).      // fixed height, scrolls instead of filling the screen
-				Value(&name),
-		),
-		// Page 2: grams, shown after the food is chosen
+	// Step 3: ask for grams in a small inline form
+	var gramsText string
+	err = huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Grams").
@@ -116,20 +110,16 @@ func logInteractive() error {
 					return nil
 				}),
 		),
-	).
-		WithWidth(w).
-		WithProgramOptions(tea.WithAltScreen()). // alt screen so a stale frame can't be left behind
-		WithShowHelp(w >= 75)                    // hide the hint bar when it would wrap
-
-	if err := form.Run(); err != nil {
+	).Run()
+	if err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
-			return nil // Esc or Ctrl-C is not an error
+			return nil
 		}
 		return err
 	}
 
 	grams, _ := strconv.ParseFloat(strings.TrimSpace(gramsText), 64)
-	return logFood(name, grams)
+	return logFood(f.Name, grams)
 }
 
 func logFood(name string, grams float64) error {

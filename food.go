@@ -303,6 +303,14 @@ func readFloat(reader *bufio.Reader, prompt string, keep *float64) float64 {
 	}
 }
 
+func findFood(foods []Food, name string) (Food, bool) {
+	i := indexOfFood(foods, name)
+	if i < 0 {
+		return Food{}, false
+	}
+	return foods[i], true
+}
+
 func indexOfFood(foods []Food, name string) int {
 	for i, f := range foods {
 		if strings.EqualFold(f.Name, name) {
@@ -392,4 +400,15 @@ func foodOptions(foods []Food, w int) []huh.Option[string] {
 		options[i] = huh.NewOption(name+suffix, f.Name) // value stays the full name
 	}
 	return options
+}
+
+func foodDetails(foods []Food, name string) string {
+	f, ok := findFood(foods, name)
+	if !ok {
+		return ""
+	}
+	return fmt.Sprintf(
+		"%.0f kcal · Protein %.1f g · Carbs %.1f g · Fat %.1f g\nFiber %.1f g · Sugar %.1f g · Salt %.2f g   (per 100 g)",
+		f.Kcal, f.Protein, f.Carbs, f.Fat, f.Fiber, f.Sugar, f.Salt,
+	)
 }

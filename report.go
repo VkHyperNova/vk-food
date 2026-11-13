@@ -123,15 +123,6 @@ func (t *Totals) add(f Food, grams float64) {
 	t.Salt += f.Salt * k
 }
 
-func findFood(foods []Food, name string) (Food, bool) {
-	for _, f := range foods {
-		if strings.EqualFold(f.Name, name) {
-			return f, true
-		}
-	}
-	return Food{}, false
-}
-
 func sumEntries(foods []Food, entries []Log) Totals {
 	var total Totals
 	for _, e := range entries {
