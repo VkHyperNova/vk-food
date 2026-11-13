@@ -412,3 +412,26 @@ func foodDetails(foods []Food, name string) string {
 		f.Kcal, f.Protein, f.Carbs, f.Fat, f.Fiber, f.Sugar, f.Salt,
 	)
 }
+
+func printFoodCard(f Food) {
+	width := utf8.RuneCountInString(f.Name)
+	if width < 26 {
+		width = 26
+	}
+
+	fmt.Println(Bold + Green + f.Name + Reset)
+	fmt.Println(Gray + strings.Repeat("─", width) + Reset)
+	fmt.Println(Italic + Gray + "per 100 g" + Reset)
+
+	row := func(label, color, value string) {
+		fmt.Printf("  %s%-9s%s %s%s%s\n", Gray, label, Reset, Bold+color, value, Reset)
+	}
+	row("Calories", Yellow, fmt.Sprintf("%.0f kcal", f.Kcal))
+	row("Protein", Cyan, fmt.Sprintf("%.1f g", f.Protein))
+	row("Carbs", Blue, fmt.Sprintf("%.1f g", f.Carbs))
+	row("Fat", Purple, fmt.Sprintf("%.1f g", f.Fat))
+	row("Fiber", Green, fmt.Sprintf("%.1f g", f.Fiber))
+	row("Sugar", Red, fmt.Sprintf("%.1f g", f.Sugar))
+	row("Salt", Gray, fmt.Sprintf("%.2f g", f.Salt))
+	fmt.Println()
+}

@@ -93,7 +93,8 @@ func logInteractive() error {
 
 	// Step 2: print the details on the normal screen so they stay visible
 	f, _ := findFood(foods, name)
-	fmt.Printf("%s%s%s\n%s\n\n", Bold, f.Name, Reset, foodDetails(foods, name))
+	fmt.Println()
+	printFoodCard(f)
 
 	// Step 3: ask for grams in a small inline form
 	var gramsText string
