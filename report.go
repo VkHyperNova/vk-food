@@ -31,6 +31,9 @@ func Report() {
 	printWeek(os.Stdout, foods, logs, today)
 
 	fmt.Println()
+	printStreak(os.Stdout, foods, logs, today)
+
+	fmt.Println()
 	printToday(os.Stdout, foods, logs, today)
 }
 
