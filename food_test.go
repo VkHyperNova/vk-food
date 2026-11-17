@@ -600,12 +600,14 @@ func TestUpdateFood(t *testing.T) {
 		}
 	})
 
-	t.Run("missing food name is an error", func(t *testing.T) {
+	t.Run("empty food list returns an error before opening the picker", func(t *testing.T) {
 		useTempData(t)
+		writeJSON(Foods, []Food{})
 		withArgs(t, "update-food")
 
-		if err := UpdateFood(); err == nil {
-			t.Error("expected an error")
+		err := UpdateFood()
+		if err == nil || !strings.Contains(err.Error(), "no foods yet") {
+			t.Errorf("got %v, want an error explaining that there are no foods", err)
 		}
 	})
 
@@ -754,12 +756,14 @@ func TestDeleteFood(t *testing.T) {
 		}
 	})
 
-	t.Run("missing food name is an error", func(t *testing.T) {
+	t.Run("empty food list returns an error before opening the picker", func(t *testing.T) {
 		useTempData(t)
+		writeJSON(Foods, []Food{})
 		withArgs(t, "delete-food")
 
-		if err := DeleteFood(); err == nil {
-			t.Error("expected an error")
+		err := DeleteFood()
+		if err == nil || !strings.Contains(err.Error(), "no foods yet") {
+			t.Errorf("got %v, want an error explaining that there are no foods to delete", err)
 		}
 	})
 
