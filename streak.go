@@ -68,7 +68,7 @@ func CalcStreak(foods []Food, entries []Log, today time.Time) Streak {
 func printStreak(out io.Writer, foods []Food, entries []Log, today time.Time) {
 	s := CalcStreak(foods, entries, today)
 
-	// progress inside the current run of 7: 0..7 (a finished run shows 7/7, not 0/7)
+	// progress inside the current 10-day run
 	filled := s.Current % streakDays
 	if s.JustDone {
 		filled = streakDays

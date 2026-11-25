@@ -31,9 +31,9 @@ func TestCalcStreak(t *testing.T) {
 		}
 	})
 
-	t.Run("7 good days in a row gives +1 on the 7th day", func(t *testing.T) {
+	t.Run("10 good days in a row gives +1 on the 10th day", func(t *testing.T) {
 		var logs []Log
-		for n := 6; n >= 0; n-- {
+		for n := 9; n >= 0; n-- {
 			logs = append(logs, goodDay(n))
 		}
 		s := CalcStreak(reportFoods, logs, reportNow)
@@ -42,20 +42,20 @@ func TestCalcStreak(t *testing.T) {
 		}
 	})
 
-	t.Run("the 8th day is not 'just done' and starts the next run", func(t *testing.T) {
+	t.Run("the 11th day is not 'just done' and starts the next run", func(t *testing.T) {
 		var logs []Log
-		for n := 7; n >= 0; n-- {
+		for n := 10; n >= 0; n-- {
 			logs = append(logs, goodDay(n))
 		}
 		s := CalcStreak(reportFoods, logs, reportNow)
-		if s.Completed != 1 || s.JustDone || s.Current != 8 {
-			t.Errorf("got %+v, want Completed 1, Current 8, not JustDone", s)
+		if s.Completed != 1 || s.JustDone || s.Current != 11 {
+			t.Errorf("got %+v, want Completed 1, Current 11, not JustDone", s)
 		}
 	})
 
-	t.Run("14 good days in a row gives +2", func(t *testing.T) {
+	t.Run("20 good days in a row gives +2", func(t *testing.T) {
 		var logs []Log
-		for n := 13; n >= 0; n-- {
+		for n := 19; n >= 0; n-- {
 			logs = append(logs, goodDay(n))
 		}
 		if s := CalcStreak(reportFoods, logs, reportNow); s.Completed != 2 {
@@ -118,7 +118,7 @@ func TestPrintStreak(t *testing.T) {
 		printStreak(&out, reportFoods, []Log{goodDay(1), goodDay(0)}, reportNow)
 		plain := stripColour(out.String())
 
-		for _, want := range []string{"Streak ●●○○○○○ 2/7", "under 2200 kcal", "7-day streaks done: 0"} {
+		for _, want := range []string{"Streak ●●○○○○○○○○ 2/10", "under 2200 kcal", "10-day streaks done: 0"} {
 			if !strings.Contains(plain, want) {
 				t.Errorf("missing %q:\n%s", want, plain)
 			}
@@ -128,16 +128,16 @@ func TestPrintStreak(t *testing.T) {
 		}
 	})
 
-	t.Run("celebrates on the 7th day", func(t *testing.T) {
+	t.Run("celebrates on the 10th day", func(t *testing.T) {
 		var logs []Log
-		for n := 6; n >= 0; n-- {
+		for n := 9; n >= 0; n-- {
 			logs = append(logs, goodDay(n))
 		}
 		var out strings.Builder
 		printStreak(&out, reportFoods, logs, reportNow)
 		plain := stripColour(out.String())
 
-		for _, want := range []string{"●●●●●●● 7/7", "7-day streaks done: 1", "You did it! +1"} {
+		for _, want := range []string{"●●●●●●●●●● 10/10", "10-day streaks done: 1", "You did it! +1"} {
 			if !strings.Contains(plain, want) {
 				t.Errorf("missing %q:\n%s", want, plain)
 			}

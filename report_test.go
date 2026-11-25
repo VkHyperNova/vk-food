@@ -19,7 +19,7 @@ import (
 //   TestCell         - one coloured table cell
 //   TestSameDay      - are two times on the same day
 //   TestLogsOn       - log entries of one day
-//   TestPrintWeek    - the "Last 7 days" table
+//   TestPrintWeek    - the "Last 10 days" table
 //   TestPrintToday   - the "Today" table and the totals
 //   TestReport       - the whole report on screen
 //
@@ -330,10 +330,10 @@ func TestPrintWeek(t *testing.T) {
 	printWeek(&out, reportFoods, logs, reportNow)
 	s := out.String()
 
-	t.Run("heading, header, 8 day rows, a line and the total", func(t *testing.T) {
-		// 7 days back and today
-		if lines := strings.Split(strings.TrimSpace(s), "\n"); len(lines) != 12 {
-			t.Errorf("got %d lines, want 12:\n%s", len(lines), s)
+	t.Run("heading, header, 10 day rows, a line and the total", func(t *testing.T) {
+		// 9 days back and today
+		if lines := strings.Split(strings.TrimSpace(s), "\n"); len(lines) != 14 {
+			t.Errorf("got %d lines, want 14:\n%s", len(lines), s)
 		}
 	})
 
@@ -344,8 +344,8 @@ func TestPrintWeek(t *testing.T) {
 	})
 
 	t.Run("dates are short: weekday and day", func(t *testing.T) {
-		if !strings.Contains(s, "Wed 07") || strings.Contains(s, "Oct") {
-			t.Errorf("want dates like 'Wed 07' without the month:\n%s", s)
+		if !strings.Contains(s, "Mon 05") || strings.Contains(s, "Oct") {
+			t.Errorf("want dates like 'Mon 05' without the month:\n%s", s)
 		}
 	})
 
@@ -373,7 +373,7 @@ func TestPrintWeek(t *testing.T) {
 
 	t.Run("days without entries have no colour", func(t *testing.T) {
 		for _, line := range strings.Split(s, "\n") {
-			if strings.HasPrefix(strings.TrimSpace(line), "Wed 07") && strings.Contains(line, "\033[") {
+			if strings.HasPrefix(strings.TrimSpace(line), "Mon 05") && strings.Contains(line, "\033[") {
 				t.Errorf("an empty day should not be coloured: %q", line)
 			}
 		}
@@ -443,9 +443,9 @@ func TestPrintWeek(t *testing.T) {
 
 	t.Run("total counts every row shown: the oldest day and today", func(t *testing.T) {
 		logs := []Log{
-			{Time: reportNow.AddDate(0, 0, -8), Food: "Oats", Grams: 100}, // not shown: not counted
-			{Time: reportNow.AddDate(0, 0, -7), Food: "Oats", Grams: 100}, // the oldest row
-			{Time: reportNow, Food: "Oats", Grams: 100},                   // today
+			{Time: reportNow.AddDate(0, 0, -10), Food: "Oats", Grams: 100}, // not shown: not counted
+			{Time: reportNow.AddDate(0, 0, -9), Food: "Oats", Grams: 100},  // the oldest row
+			{Time: reportNow, Food: "Oats", Grams: 100},                    // today
 		}
 
 		if got := totalFields(t, logs); got[1] != "740" { // 2 x 370 kcal
@@ -592,13 +592,13 @@ func TestPrintToday(t *testing.T) {
 // ============================================================
 
 func TestReport(t *testing.T) {
-	t.Run("shows foods, last 7 days and today", func(t *testing.T) {
+	t.Run("shows foods, last 10 days and today", func(t *testing.T) {
 		useTempData(t) // saves Oats, Cheese, Peanut butter
 		seedLogs(t)    // three entries logged now
 
 		out := captureReport(t)
 
-		for _, want := range []string{"Last 7 days", "Today,", "Peanut butter", "Calories"} {
+		for _, want := range []string{"Last 10 days", "Today,", "Peanut butter", "Calories"} {
 			if !strings.Contains(out, want) {
 				t.Errorf("output missing %q:\n%s", want, out)
 			}

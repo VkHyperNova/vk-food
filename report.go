@@ -11,7 +11,10 @@ import (
 	"time"
 )
 
-const reportDays = 10 // number of days shown in the table (today included)
+const (
+	reportDays        = 10 // number of days shown in the table (today included)
+	reportColumnWidth = 8
+)
 
 /* Commands */
 
@@ -43,7 +46,7 @@ func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
 	fmt.Fprintln(out, Bold+fmt.Sprintf("Last %d days", reportDays)+Reset)
 
 	fmt.Fprintf(out, "%-*s%*s%*s%*s%*s%*s%*s%*s\n", 6, "Date",
-		8, "kcal", 8, "Protein", 8, "Carbs", 8, "Fat", 8, "Fiber", 8, "Sugar", 8, "Salt")
+		reportColumnWidth, "kcal", reportColumnWidth, "Protein", reportColumnWidth, "Carbs", reportColumnWidth, "Fat", reportColumnWidth, "Fiber", reportColumnWidth, "Sugar", reportColumnWidth, "Salt")
 	var all []Log // every entry of the rows below, for the total
 	for i := reportDays - 1; i >= 0; i-- {
 		day := today.AddDate(0, 0, -i)
@@ -52,7 +55,7 @@ func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
 		list := logsOn(entries, day)
 		all = append(all, list...)
 		if len(list) == 0 {
-			fmt.Fprintf(out, "%-*s%s\n", 6, date, strings.Repeat(fmt.Sprintf("%*s", 8, "-"), 7))
+			fmt.Fprintf(out, "%-*s%s\n", 6, date, strings.Repeat(fmt.Sprintf("%*s", reportColumnWidth, "-"), 7))
 			continue
 		}
 		t := sumEntries(foods, list)
@@ -68,10 +71,10 @@ func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
 	}
 
 	total := sumEntries(foods, all)
-	fmt.Fprintln(out, strings.Repeat("-", 6+7*8))
+	fmt.Fprintln(out, strings.Repeat("-", 6+7*reportColumnWidth))
 	fmt.Fprintf(out, "%s%-*s%*.0f%*.1f%*.1f%*.1f%*.1f%*.1f%*.1f%s\n", Bold, 6, "Total",
-		8, total.Kcal, 8, total.Protein, 8, total.Carbs, 8, total.Fat,
-		8, total.Fiber, 8, total.Sugar, 8, total.Salt, Reset)
+		reportColumnWidth, total.Kcal, reportColumnWidth, total.Protein, reportColumnWidth, total.Carbs, reportColumnWidth, total.Fat,
+		reportColumnWidth, total.Fiber, reportColumnWidth, total.Sugar, reportColumnWidth, total.Salt, Reset)
 }
 
 func printToday(out io.Writer, foods []Food, entries []Log, today time.Time) {
@@ -139,7 +142,7 @@ func sumEntries(foods []Food, entries []Log) Totals {
 }
 
 func cell(color, text string) string {
-	return color + fmt.Sprintf("%*s", 8, text) + Reset
+	return color + fmt.Sprintf("%*s", reportColumnWidth, text) + Reset
 }
 
 type Levels struct{ Kcal, Protein, Carbs, Fat, Fiber, Sugar, Salt string }
