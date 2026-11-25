@@ -460,19 +460,33 @@ func TestPrintWeek(t *testing.T) {
 		}
 	})
 
-	t.Run("the total is bold and has no limit colour", func(t *testing.T) {
-		logs := []Log{{Time: reportNow, Food: "Cheese", Grams: 1000}} // far over every limit
-
-		var out strings.Builder
-		printWeek(&out, reportFoods, logs, reportNow)
-		lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-		total := lines[len(lines)-1]
-
-		if !strings.HasPrefix(total, Bold) {
-			t.Errorf("the total row should be bold: %q", total)
+	t.Run("total calories use green, yellow, and red limits", func(t *testing.T) {
+		tests := []struct {
+			name  string
+			grams float64
+			kcal  string
+			color string
+		}{
+			{"equal to green limit", 5500, "22000", Bold + Green},
+			{"equal to red limit", 7750, "31000", Bold + Yellow},
+			{"above red limit", 8000, "32000", Bold + Red},
 		}
-		if strings.Contains(total, Red) || strings.Contains(total, Yellow) || strings.Contains(total, Green) {
-			t.Errorf("the total row should not use the day limits: %q", total)
+
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				logs := []Log{{Time: reportNow, Food: "Cheese", Grams: tc.grams}}
+				var out strings.Builder
+				printWeek(&out, reportFoods, logs, reportNow)
+				lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+				total := lines[len(lines)-1]
+
+				if !strings.Contains(total, tc.color+pad(tc.kcal)) {
+					t.Errorf("total calories should have color %q: %q", tc.color, total)
+				}
+				if !strings.Contains(total, tc.color+pad(tc.kcal)+Reset+Bold) {
+					t.Errorf("color should reset after the kcal total: %q", total)
+				}
+			})
 		}
 	})
 }

@@ -72,8 +72,10 @@ func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
 
 	total := sumEntries(foods, all)
 	fmt.Fprintln(out, strings.Repeat("-", 6+7*reportColumnWidth))
-	fmt.Fprintf(out, "%s%-*s%*.0f%*.1f%*.1f%*.1f%*.1f%*.1f%*.1f%s\n", Bold, 6, "Total",
-		reportColumnWidth, total.Kcal, reportColumnWidth, total.Protein, reportColumnWidth, total.Carbs, reportColumnWidth, total.Fat,
+	kcalColor := levelColor(total.Kcal, 0, 2200*reportDays, 3100*reportDays)
+	fmt.Fprintf(out, "%s%-*s%s%*.0f%s%s%*.1f%*.1f%*.1f%*.1f%*.1f%*.1f%s\n", Bold, 6, "Total",
+		kcalColor, reportColumnWidth, total.Kcal, Reset, Bold,
+		reportColumnWidth, total.Protein, reportColumnWidth, total.Carbs, reportColumnWidth, total.Fat,
 		reportColumnWidth, total.Fiber, reportColumnWidth, total.Sugar, reportColumnWidth, total.Salt, Reset)
 }
 
