@@ -185,7 +185,7 @@ func TestLevelsOf(t *testing.T) {
 		set                func(*Totals, float64)
 		get                func(Levels) string
 	}{
-		{"calories", 0, 2400, 3100, func(t *Totals, v float64) { t.Kcal = v }, func(l Levels) string { return l.Kcal }},
+		{"calories", 0, 2200, 3100, func(t *Totals, v float64) { t.Kcal = v }, func(l Levels) string { return l.Kcal }},
 		{"protein", 85, 150, 180, func(t *Totals, v float64) { t.Protein = v }, func(l Levels) string { return l.Protein }},
 		{"carbs", 50, 150, 300, func(t *Totals, v float64) { t.Carbs = v }, func(l Levels) string { return l.Carbs }},
 		{"fat", 45, 75, 90, func(t *Totals, v float64) { t.Fat = v }, func(l Levels) string { return l.Fat }},

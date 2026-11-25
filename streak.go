@@ -74,9 +74,21 @@ func printStreak(out io.Writer, foods []Food, entries []Log, today time.Time) {
 		filled = streakDays
 	}
 
-	fmt.Fprintf(out, "%sStreak%s %s%s%s %d/%d  (under %d kcal)\n",
+	var dots strings.Builder
+	for offset := streakDays - 1; offset >= 0; offset-- {
+		dayLogs := logsOn(entries, today.AddDate(0, 0, -offset))
+		if len(dayLogs) == 0 {
+			dots.WriteRune('○')
+			continue
+		}
+
+		color := levelColor(sumEntries(foods, dayLogs).Kcal, 0, 2200, 3100)
+		dots.WriteString(color + "●" + Reset)
+	}
+
+	fmt.Fprintf(out, "%sStreak%s %s %d/%d  (under %d kcal)\n",
 		Bold, Reset,
-		Green, strings.Repeat("●", filled)+Reset+strings.Repeat("○", streakDays-filled), Reset,
+		dots.String(),
 		filled, streakDays, streakKcalLimit)
 	fmt.Fprintf(out, "%d-day streaks done: %d\n", streakDays, s.Completed)
 	if s.JustDone {

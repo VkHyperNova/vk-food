@@ -151,7 +151,7 @@ type Levels struct{ Kcal, Protein, Carbs, Fat, Fiber, Sugar, Salt string }
 
 func levelsOf(t Totals) Levels {
 	return Levels{
-		Kcal:    levelColor(t.Kcal, 0, 2400, 3100),
+		Kcal:    levelColor(t.Kcal, 0, 2200, 3100),
 		Protein: levelColor(t.Protein, 85, 150, 180),
 		Carbs:   levelColor(t.Carbs, 50, 150, 300),
 		Fat:     levelColor(t.Fat, 45, 75, 90),

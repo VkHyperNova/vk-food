@@ -118,13 +118,39 @@ func TestPrintStreak(t *testing.T) {
 		printStreak(&out, reportFoods, []Log{goodDay(1), goodDay(0)}, reportNow)
 		plain := stripColour(out.String())
 
-		for _, want := range []string{"Streak ●●○○○○○○○○ 2/10", "under 2200 kcal", "10-day streaks done: 0"} {
+		for _, want := range []string{"Streak ○○○○○○○○●● 2/10", "under 2200 kcal", "10-day streaks done: 0"} {
 			if !strings.Contains(plain, want) {
 				t.Errorf("missing %q:\n%s", want, plain)
 			}
 		}
 		if strings.Contains(plain, "You did it") {
 			t.Errorf("should not celebrate yet:\n%s", plain)
+		}
+	})
+
+	t.Run("colors recent days by calories", func(t *testing.T) {
+		foods := []Food{
+			{Name: "Green", Kcal: 220},
+			{Name: "Yellow", Kcal: 222},
+			{Name: "Red", Kcal: 320},
+		}
+		logs := []Log{
+			{Time: reportNow.AddDate(0, 0, -2), Food: "Green", Grams: 1000},
+			{Time: reportNow.AddDate(0, 0, -1), Food: "Yellow", Grams: 1000},
+			{Time: reportNow, Food: "Red", Grams: 1000},
+		}
+		var out strings.Builder
+		printStreak(&out, foods, logs, reportNow)
+
+		wantDots := strings.Repeat("○", 7) +
+			Bold + Green + "●" + Reset +
+			Bold + Yellow + "●" + Reset +
+			Bold + Red + "●" + Reset
+		if !strings.Contains(out.String(), wantDots) {
+			t.Errorf("dots = %q, want recent days colored by calories: %q", out.String(), wantDots)
+		}
+		if !strings.Contains(stripColour(out.String()), "0/10") {
+			t.Errorf("streak progress should still count only under-limit days:\n%s", stripColour(out.String()))
 		}
 	})
 
