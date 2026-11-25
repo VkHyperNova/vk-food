@@ -9,7 +9,7 @@ import (
 
 const (
 	streakKcalLimit = 2200 // a day counts when it is under this many kcal
-	streakDays      = 7    // days in a row for one "You did it! +1"
+	streakDays      = 10   // days in a row for one "You did it! +1"
 )
 
 // Streak is the result of looking through the whole log.
@@ -78,7 +78,7 @@ func printStreak(out io.Writer, foods []Food, entries []Log, today time.Time) {
 		Bold, Reset,
 		Green, strings.Repeat("●", filled)+Reset+strings.Repeat("○", streakDays-filled), Reset,
 		filled, streakDays, streakKcalLimit)
-	fmt.Fprintf(out, "7-day streaks done: %d\n", s.Completed)
+	fmt.Fprintf(out, "%d-day streaks done: %d\n", streakDays, s.Completed)
 	if s.JustDone {
 		fmt.Fprintln(out, Bold+Green+"You did it! +1"+Reset)
 	}
