@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const reportDays = 10 // number of days shown in the table (today included)
+
 /* Commands */
 
 func Report() {
@@ -38,12 +40,12 @@ func Report() {
 }
 
 func printWeek(out io.Writer, foods []Food, entries []Log, today time.Time) {
-	fmt.Fprintln(out, Bold+"Last 7 days"+Reset)
+	fmt.Fprintln(out, Bold+fmt.Sprintf("Last %d days", reportDays)+Reset)
 
 	fmt.Fprintf(out, "%-*s%*s%*s%*s%*s%*s%*s%*s\n", 6, "Date",
 		8, "kcal", 8, "Protein", 8, "Carbs", 8, "Fat", 8, "Fiber", 8, "Sugar", 8, "Salt")
 	var all []Log // every entry of the rows below, for the total
-	for i := 7; i >= 0; i-- {
+	for i := reportDays - 1; i >= 0; i-- {
 		day := today.AddDate(0, 0, -i)
 		date := day.Format("Mon 02")
 
